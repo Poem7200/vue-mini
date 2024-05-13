@@ -4,6 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "dev": "rollup -c -w",
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "rm -rf ./packages/vue/dist && rollup -c"
   },
