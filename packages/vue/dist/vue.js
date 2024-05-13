@@ -1,16 +1,20 @@
 var Vue = (function (exports) {
     'use strict';
 
+    var targetMap = new WeakMap();
     function effect(fn) {
         var _effect = new ReactiveEffect(fn);
         // 完成第一次run执行
         _effect.run();
     }
+    var activeEffect;
     var ReactiveEffect = /** @class */ (function () {
         function ReactiveEffect(fn) {
             this.fn = fn;
         }
         ReactiveEffect.prototype.run = function () {
+            // 标记当前触发的effect
+            activeEffect = this;
             return this.fn();
         };
         return ReactiveEffect;
@@ -21,7 +25,14 @@ var Vue = (function (exports) {
      * @param key
      */
     function track(target, key) {
-        console.log("依赖收集", target, key);
+        if (!activeEffect)
+            return;
+        var depsMap = targetMap.get(target);
+        if (!depsMap) {
+            targetMap.set(target, (depsMap = new Map()));
+        }
+        depsMap.set(key, activeEffect);
+        console.log(targetMap);
     }
     /**
      * 触发依赖

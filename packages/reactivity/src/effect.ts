@@ -1,3 +1,13 @@
+/**
+ * 依赖收集要考虑使用weakmap操作
+ * key：响应性对象
+ * value：Map对象
+ *    key：响应性对象指定属性
+ *    value：指定对象的指定属性的执行函数
+ */
+type KeyToDepMap = Map<any, ReactiveEffect>;
+const targetMap = new WeakMap<object, KeyToDepMap>();
+
 export function effect<T = any>(fn: () => T) {
   const _effect = new ReactiveEffect(fn);
   // 完成第一次run执行
@@ -23,7 +33,16 @@ export class ReactiveEffect<T = any> {
  * @param key
  */
 export function track(target: object, key: unknown) {
-  console.log("依赖收集", target, key);
+  if (!activeEffect) return;
+
+  let depsMap = targetMap.get(target);
+  if (!depsMap) {
+    targetMap.set(target, (depsMap = new Map()));
+  }
+
+  depsMap.set(key, activeEffect);
+
+  console.log(targetMap);
 }
 
 /**
