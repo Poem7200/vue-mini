@@ -29,16 +29,15 @@
 		// 禁用 sourceMap
 		"sourceMap": false,
 		// https://www.typescriptlang.org/tsconfig#lib
-		"lib": ["esnext", "dom"]
+		"lib": ["esnext", "dom"],
+		// 设置快捷导入
+		"baseUrl": ".",
+		"paths": {
+      "@vue/*": ["packages/*/src"]
+    }
 	},
 	// 入口
 	"include": [
 		"packages/*/src"
-	],
-	// 设置快捷导入
-	// 根路径
-	"baseUrl": ".",
-	"paths": {
-		"@vue/*": ["packages/*/src"]
-	}
+	]
 }
