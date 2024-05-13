@@ -1,3 +1,22 @@
+export function effect<T = any>(fn: () => T) {
+  const _effect = new ReactiveEffect(fn);
+  // 完成第一次run执行
+  _effect.run();
+}
+
+export let activeEffect: ReactiveEffect | undefined;
+
+export class ReactiveEffect<T = any> {
+  constructor(public fn: () => T) {}
+
+  run() {
+    // 标记当前触发的effect
+    activeEffect = this;
+
+    return this.fn();
+  }
+}
+
 /**
  * 收集依赖
  * @param target
