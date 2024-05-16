@@ -1,3 +1,4 @@
+import { isObject } from "@vue/shared";
 import { mutableHandlers } from "./baseHandlers";
 
 // WeakMap的键必须是对象，且key弱引用（不影响垃圾回收，即key不再有任何引用的时候，会直接回收）
@@ -24,3 +25,7 @@ function createReactiveObject(
 
   return proxy;
 }
+
+export const toReactive = <T extends unknown>(value: T): T => {
+  return isObject(value) ? reactive(value as object) : value;
+};
