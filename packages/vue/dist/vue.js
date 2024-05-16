@@ -1,6 +1,11 @@
 var Vue = (function (exports) {
     'use strict';
 
+    var createDep = function (effects) {
+        var dep = new Set(effects);
+        return dep;
+    };
+
     var targetMap = new WeakMap();
     function effect(fn) {
         var _effect = new ReactiveEffect(fn);
@@ -31,7 +36,17 @@ var Vue = (function (exports) {
         if (!depsMap) {
             targetMap.set(target, (depsMap = new Map()));
         }
-        depsMap.set(key, activeEffect);
+        var dep = depsMap.get(key);
+        if (!dep) {
+            depsMap.set(key, (dep = createDep()));
+        }
+        trackEffects(dep);
+        // 这个地方只设置了一对一的关联关系，如果一个key对应多个effect那就不行了
+        // depsMap.set(key, activeEffect);
+    }
+    // 依次收集依赖
+    function trackEffects(dep) {
+        dep.add(activeEffect);
     }
     /**
      * 触发依赖
@@ -43,10 +58,20 @@ var Vue = (function (exports) {
         var depsMap = targetMap.get(target);
         if (!depsMap)
             return;
-        var effect = depsMap.get(key);
-        if (!effect)
+        var dep = depsMap.get(key);
+        if (!dep)
             return;
-        effect.fn();
+        triggerEffects(dep);
+    }
+    // 依次触发依赖
+    function triggerEffects(dep) {
+        Array.from(dep).forEach(function (effect) {
+            triggerEffect(effect);
+        });
+    }
+    // 触发指定依赖
+    function triggerEffect(effect) {
+        effect.run();
     }
 
     var get = createGetter();
