@@ -1,3 +1,4 @@
+import { ComputedRefImpl } from "./computed";
 import { Dep, createDep } from "./dep";
 
 /**
@@ -19,6 +20,8 @@ export function effect<T = any>(fn: () => T) {
 export let activeEffect: ReactiveEffect | undefined;
 
 export class ReactiveEffect<T = any> {
+  computed?: ComputedRefImpl<T>;
+
   constructor(public fn: () => T) {}
 
   run() {
