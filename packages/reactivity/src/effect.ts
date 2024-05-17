@@ -1,6 +1,8 @@
 import { ComputedRefImpl } from "./computed";
 import { Dep, createDep } from "./dep";
 
+export type EffectScheduler = (...args: any[]) => any;
+
 /**
  * 依赖收集要考虑使用weakmap操作
  * key：响应性对象
@@ -22,7 +24,10 @@ export let activeEffect: ReactiveEffect | undefined;
 export class ReactiveEffect<T = any> {
   computed?: ComputedRefImpl<T>;
 
-  constructor(public fn: () => T) {}
+  constructor(
+    public fn: () => T,
+    public scheduler: EffectScheduler | null = null
+  ) {}
 
   run() {
     // 标记当前触发的effect
@@ -86,5 +91,9 @@ export function triggerEffects(dep: Dep) {
 
 // 触发指定依赖
 export function triggerEffect(effect: ReactiveEffect) {
-  effect.run();
+  if (effect.scheduler) {
+    effect.scheduler();
+  } else {
+    effect.run();
+  }
 }
