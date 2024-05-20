@@ -84,8 +84,14 @@ export function trigger(target: object, key: unknown, newValue: unknown) {
 
 // 依次触发依赖
 export function triggerEffects(dep: Dep) {
+  // 先执行计算属性的effect
   Array.from(dep).forEach((effect) => {
-    triggerEffect(effect);
+    effect.computed && triggerEffect(effect);
+  });
+
+  // 再执行非计算属性的effect
+  Array.from(dep).forEach((effect) => {
+    !effect.computed && triggerEffect(effect);
   });
 }
 

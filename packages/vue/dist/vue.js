@@ -81,8 +81,13 @@ var Vue = (function (exports) {
     }
     // 依次触发依赖
     function triggerEffects(dep) {
+        // 先执行计算属性的effect
         Array.from(dep).forEach(function (effect) {
-            triggerEffect(effect);
+            effect.computed && triggerEffect(effect);
+        });
+        // 再执行非计算属性的effect
+        Array.from(dep).forEach(function (effect) {
+            !effect.computed && triggerEffect(effect);
         });
     }
     // 触发指定依赖
