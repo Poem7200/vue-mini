@@ -1,5 +1,5 @@
 import { isReactive } from "@vue/reactivity";
-import { EMPTY_OBJ, hasChanged } from "@vue/shared";
+import { EMPTY_OBJ, hasChanged, isObject } from "@vue/shared";
 import { queuePreFlushCb } from "./scheduler";
 import { ReactiveEffect } from "packages/reactivity/src/effect";
 
@@ -28,7 +28,7 @@ function doWatch(
 
   if (cb && deep) {
     const baseGetter = getter;
-    getter = () => baseGetter();
+    getter = () => traverse(baseGetter());
   }
 
   let oldValue = {};
@@ -61,4 +61,16 @@ function doWatch(
   return () => {
     effect.stop();
   };
+}
+
+export function traverse(value: unknown) {
+  if (!isObject(value)) {
+    return value;
+  }
+
+  for (const key in value as object) {
+    traverse((value as object)[key]);
+  }
+
+  return value;
 }
