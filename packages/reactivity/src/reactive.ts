@@ -5,6 +5,10 @@ import { mutableHandlers } from "./baseHandlers";
 // 也就是，一旦key里面的这个obj给清除了，则WeakMap对应的key也清除了
 export const reactiveMap = new WeakMap<object, any>();
 
+export const enum ReactiveFlags {
+  IS_REACTIVE = "__v_isReactive",
+}
+
 export function reactive(target: object) {
   return createReactiveObject(target, mutableHandlers, reactiveMap);
 }
@@ -21,6 +25,8 @@ function createReactiveObject(
   }
 
   const proxy = new Proxy(target, baseHandlers);
+  // 这个属性是用来判断是否为reactive的
+  proxy[ReactiveFlags.IS_REACTIVE] = true;
   proxyMap.set(target, proxy);
 
   return proxy;
@@ -29,3 +35,7 @@ function createReactiveObject(
 export const toReactive = <T extends unknown>(value: T): T => {
   return isObject(value) ? reactive(value as object) : value;
 };
+
+export function isReactive(value): boolean {
+  return !!(value && value[ReactiveFlags.IS_REACTIVE]);
+}

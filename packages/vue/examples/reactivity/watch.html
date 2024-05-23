@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <script src="../../dist/vue.js"></script>
+  </head>
+  <body>
+    <div id="app"></div>
+  </body>
+
+  <script>
+    const { reactive, effect, watch } = Vue;
+
+    const obj = reactive({
+      name: "shige",
+    });
+
+    watch(
+      obj,
+      (value, oldValue) => {
+        console.log("watch run");
+        console.log(`value is ${JSON.stringify(value)}`);
+      },
+      {
+        immediate: true,
+      }
+    );
+
+    setTimeout(() => {
+      obj.name = "zhou";
+    }, 2000);
+  </script>
+</html>
