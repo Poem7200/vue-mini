@@ -12,16 +12,14 @@
   <script>
     const { ref, effect } = Vue;
 
-    const obj = ref({
-      name: "shige",
-    });
+    const name = ref("张三");
 
     effect(() => {
-      document.querySelector("#app").innerText = obj.value.name;
+      document.querySelector("#app").innerText = name.value;
     });
 
     setTimeout(() => {
-      obj.value.name = "zhou";
+      name.value = "李四";
     }, 2000);
   </script>
 </html>

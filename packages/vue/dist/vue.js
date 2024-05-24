@@ -2,9 +2,14 @@ var Vue = (function (exports) {
     'use strict';
 
     // 判断是否为一个数组
+    var isArray = Array.isArray;
     // 判断是否为对象
     var isObject = function (val) {
         return val !== null && typeof val === "object";
+    };
+    // 判断是否为字符串
+    var isString = function (val) {
+        return typeof val === "string";
     };
     // 判断数据是否改变
     var hasChanged = function (value, oldValue) {
@@ -337,7 +342,7 @@ var Vue = (function (exports) {
         }
         if (cb && deep) {
             var baseGetter_1 = getter;
-            getter = function () { return baseGetter_1(); };
+            getter = function () { return traverse(baseGetter_1()); };
         }
         var oldValue = {};
         // 本质上为了拿到newValue
@@ -367,9 +372,85 @@ var Vue = (function (exports) {
             effect.stop();
         };
     }
+    function traverse(value) {
+        if (!isObject(value)) {
+            return value;
+        }
+        for (var key in value) {
+            traverse(value[key]);
+        }
+        return value;
+    }
+
+    function isVNode(value) {
+        return value ? value.__v_isVNode === true : false;
+    }
+    /**
+     * 生成一个VNode对象，并返回
+     * @param type vnode类型
+     * @param props 标签/自定义属性
+     * @param children 子节点
+     * @returns vnode对象
+     */
+    function createVNode(type, props, children) {
+        var shapeFlag = isString(type) ? 1 /* ShapeFlags.ELEMENT */ : 0;
+        return createBaseVNode(type, props, children, shapeFlag);
+    }
+    // 创建基础vnode
+    function createBaseVNode(type, props, children, shapeFlag) {
+        var vnode = {
+            __v_isVNode: true,
+            type: type,
+            props: props,
+            shapeFlag: shapeFlag,
+        };
+        normalizeChildren(vnode, children);
+        return vnode;
+    }
+    function normalizeChildren(vnode, children) {
+        var type = 0;
+        vnode.shapeFlag;
+        if (children === null) {
+            children = null;
+        }
+        else if (isArray(children)) ;
+        else if (typeof children === "object") ;
+        else if (isFunction(children)) ;
+        else {
+            children = String(children);
+            type = 8 /* ShapeFlags.TEXT_CHILDREN */;
+        }
+        vnode.children = children;
+        vnode.shapeFlag |= type;
+    }
+
+    function h(type, propsOrChildren, children) {
+        var l = arguments.length;
+        if (l == 2) {
+            if (isObject(propsOrChildren) && !isArray(propsOrChildren)) {
+                if (isVNode(propsOrChildren)) {
+                    return createVNode(type, null, [propsOrChildren]);
+                }
+                return createVNode(type, propsOrChildren, []);
+            }
+            else {
+                return createVNode(type, null, propsOrChildren);
+            }
+        }
+        else {
+            if (l > 3) {
+                children = Array.prototype.slice.call(arguments, 2);
+            }
+            else if (l === 3 && isVNode(children)) {
+                children = [children];
+            }
+            return createVNode(type, propsOrChildren, children);
+        }
+    }
 
     exports.computed = computed;
     exports.effect = effect;
+    exports.h = h;
     exports.queuePreFlushCb = queuePreFlushCb;
     exports.reactive = reactive;
     exports.ref = ref;
