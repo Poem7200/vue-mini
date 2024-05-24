@@ -47,7 +47,7 @@ export function normalizeChildren(vnode: VNode, children: unknown) {
   if (children === null) {
     children = null;
   } else if (isArray(children)) {
-    // TODO: 数组类型的children
+    type = ShapeFlags.ARRAY_CHILDREN;
   } else if (typeof children === "object") {
     // TODO: 对象类型的children
   } else if (isFunction(children)) {

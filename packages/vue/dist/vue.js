@@ -413,7 +413,9 @@ var Vue = (function (exports) {
         if (children === null) {
             children = null;
         }
-        else if (isArray(children)) ;
+        else if (isArray(children)) {
+            type = 16 /* ShapeFlags.ARRAY_CHILDREN */;
+        }
         else if (typeof children === "object") ;
         else if (isFunction(children)) ;
         else {
