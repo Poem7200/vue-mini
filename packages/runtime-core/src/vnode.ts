@@ -1,4 +1,10 @@
-import { isArray, isFunction, isString, ShapeFlags } from "@vue/shared";
+import {
+  isArray,
+  isFunction,
+  isObject,
+  isString,
+  ShapeFlags,
+} from "@vue/shared";
 
 export interface VNode {
   __v_isVNode: true;
@@ -20,7 +26,11 @@ export function isVNode(value: any): value is VNode {
  * @returns vnode对象
  */
 export function createVNode(type, props, children): VNode {
-  const shapeFlag = isString(type) ? ShapeFlags.ELEMENT : 0;
+  const shapeFlag = isString(type)
+    ? ShapeFlags.ELEMENT
+    : isObject(type)
+    ? ShapeFlags.STATEFUL_COMPONENT
+    : 0;
 
   return createBaseVNode(type, props, children, shapeFlag);
 }
@@ -44,7 +54,7 @@ export function normalizeChildren(vnode: VNode, children: unknown) {
 
   const { shapeFlag } = vnode;
 
-  if (children === null) {
+  if (children == null) {
     children = null;
   } else if (isArray(children)) {
     type = ShapeFlags.ARRAY_CHILDREN;

@@ -393,7 +393,11 @@ var Vue = (function (exports) {
      * @returns vnode对象
      */
     function createVNode(type, props, children) {
-        var shapeFlag = isString(type) ? 1 /* ShapeFlags.ELEMENT */ : 0;
+        var shapeFlag = isString(type)
+            ? 1 /* ShapeFlags.ELEMENT */
+            : isObject(type)
+                ? 4 /* ShapeFlags.STATEFUL_COMPONENT */
+                : 0;
         return createBaseVNode(type, props, children, shapeFlag);
     }
     // 创建基础vnode
@@ -410,7 +414,7 @@ var Vue = (function (exports) {
     function normalizeChildren(vnode, children) {
         var type = 0;
         vnode.shapeFlag;
-        if (children === null) {
+        if (children == null) {
             children = null;
         }
         else if (isArray(children)) {
@@ -446,6 +450,7 @@ var Vue = (function (exports) {
             else if (l === 3 && isVNode(children)) {
                 children = [children];
             }
+            debugger;
             return createVNode(type, propsOrChildren, children);
         }
     }
