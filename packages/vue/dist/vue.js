@@ -1,6 +1,29 @@
 var Vue = (function (exports) {
     'use strict';
 
+    function normalizeClass(value) {
+        var res = "";
+        if (isString(value)) {
+            res = value;
+        }
+        else if (isArray(value)) {
+            for (var i = 0; i < value.length; i++) {
+                var normalized = normalizeClass(value[i]);
+                if (normalized) {
+                    res += normalized + " ";
+                }
+            }
+        }
+        else if (isObject(value)) {
+            for (var name_1 in value) {
+                if (value[name_1]) {
+                    res += name_1 + " ";
+                }
+            }
+        }
+        return res.trim();
+    }
+
     // 判断是否为一个数组
     var isArray = Array.isArray;
     // 判断是否为对象
@@ -396,6 +419,12 @@ var Vue = (function (exports) {
      * @returns vnode对象
      */
     function createVNode(type, props, children) {
+        if (props) {
+            var klass = props.class; props.style;
+            if (klass && !isString(klass)) {
+                props.class = normalizeClass(klass);
+            }
+        }
         var shapeFlag = isString(type)
             ? 1 /* ShapeFlags.ELEMENT */
             : isObject(type)

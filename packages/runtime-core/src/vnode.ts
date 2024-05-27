@@ -3,6 +3,7 @@ import {
   isFunction,
   isObject,
   isString,
+  normalizeClass,
   ShapeFlags,
 } from "@vue/shared";
 
@@ -30,6 +31,14 @@ export function isVNode(value: any): value is VNode {
  * @returns vnode对象
  */
 export function createVNode(type, props, children): VNode {
+  if (props) {
+    let { class: klass, style } = props;
+
+    if (klass && !isString(klass)) {
+      props.class = normalizeClass(klass);
+    }
+  }
+
   const shapeFlag = isString(type)
     ? ShapeFlags.ELEMENT
     : isObject(type)
