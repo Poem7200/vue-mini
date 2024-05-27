@@ -17,6 +17,43 @@ export function createRenderer(options: RendererOptions) {
 }
 
 function baseCreateRenderer(options: RendererOptions): any {
+  const {
+    insert: hostInsert,
+    patchProp: hostPatchProp,
+    createElement: hostCreateElement,
+    setElementText: hostSetElementText,
+  } = options;
+
+  const processElement = (oldVNode, newVNode, container, anchor) => {
+    if (oldVNode == null) {
+      // 挂载
+      mountElement(newVNode, container, anchor);
+    } else {
+      // 更新
+    }
+  };
+
+  const mountElement = (vnode, container, anchor) => {
+    const { type, props, shapeFlag } = vnode;
+    // 创建element
+    const el = (vnode.el = hostCreateElement(type));
+    if (shapeFlag & ShapeFlags.TEXT_CHILDREN) {
+      // 设置文本
+      hostSetElementText(el, vnode.children);
+    } else if (shapeFlag & ShapeFlags.ARRAY_CHILDREN) {
+      // TODO:
+    }
+
+    // 设置props
+    if (props) {
+      for (const key in props) {
+        hostPatchProp(el, key, null, props[key]);
+      }
+    }
+    // 插入
+    hostInsert(el, container, anchor);
+  };
+
   const patch = (oldVNode, newVNode, container, anchor = null) => {
     if (oldVNode === newVNode) {
       return;
@@ -33,7 +70,7 @@ function baseCreateRenderer(options: RendererOptions): any {
         break;
       default:
         if (shapeFlag & ShapeFlags.ELEMENT) {
-          // TODO
+          processElement(oldVNode, newVNode, container, anchor);
         } else if (shapeFlag & ShapeFlags.COMPONENT) {
           // TODO
         }
