@@ -21,7 +21,6 @@ export function h(type: any, propsOrChildren?: any, children?: any): VNode {
       children = [children];
     }
 
-    debugger;
     return createVNode(type, propsOrChildren, children);
   }
 }

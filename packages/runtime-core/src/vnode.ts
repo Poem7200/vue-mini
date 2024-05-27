@@ -6,6 +6,10 @@ import {
   ShapeFlags,
 } from "@vue/shared";
 
+export const Fragment = Symbol("Fragment");
+export const Text = Symbol("Text");
+export const Comment = Symbol("Comment");
+
 export interface VNode {
   __v_isVNode: true;
   type: any;

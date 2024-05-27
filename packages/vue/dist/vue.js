@@ -382,6 +382,9 @@ var Vue = (function (exports) {
         return value;
     }
 
+    var Fragment = Symbol("Fragment");
+    var Text = Symbol("Text");
+    var Comment = Symbol("Comment");
     function isVNode(value) {
         return value ? value.__v_isVNode === true : false;
     }
@@ -450,11 +453,13 @@ var Vue = (function (exports) {
             else if (l === 3 && isVNode(children)) {
                 children = [children];
             }
-            debugger;
             return createVNode(type, propsOrChildren, children);
         }
     }
 
+    exports.Comment = Comment;
+    exports.Fragment = Fragment;
+    exports.Text = Text;
     exports.computed = computed;
     exports.effect = effect;
     exports.h = h;
