@@ -599,7 +599,12 @@ var Vue = (function (exports) {
         };
         // 渲染：把vnode渲染到指定container下
         var render = function (vnode, container) {
-            if (vnode === null) ;
+            if (vnode === null) {
+                // 卸载
+                if (container._vnode) {
+                    unmount(container._vnode);
+                }
+            }
             else {
                 patch(container._vnode || null, vnode, container);
             }
@@ -639,14 +644,47 @@ var Vue = (function (exports) {
         }
     }
 
+    function patchDOMProp(el, key, value) {
+        try {
+            el[key] = value;
+        }
+        catch (err) {
+            console.error(err);
+        }
+    }
+
+    function patchAttr(el, key, value) {
+        if (value == null) {
+            el.removeAttribute(key);
+        }
+        else {
+            el.setAttribute(key, value);
+        }
+    }
+
     var patchProp = function (el, key, prevValue, nextValue) {
         if (key === "class") {
             patchClass(el, nextValue);
         }
         else if (key === "style") ;
         else if (isOn(key)) ;
-        else ;
+        else if (shouldSetAsProp(el, key)) {
+            patchDOMProp(el, key, nextValue);
+        }
+        else {
+            patchAttr(el, key, nextValue);
+        }
     };
+    function shouldSetAsProp(el, key) {
+        if (key === "form")
+            return false;
+        // input的list属性必须通过setAttribute设置
+        if (key === "list" && el.tagName === "INPUT")
+            return false;
+        if (key === "type" && el.tagName === "TEXTAREA")
+            return false;
+        return key in el;
+    }
 
     var rendererOptions = extend({ patchProp: patchProp }, nodeOps);
     var renderer;
