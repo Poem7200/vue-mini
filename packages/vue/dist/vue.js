@@ -44,6 +44,8 @@ var Vue = (function (exports) {
     };
     var extend = Object.assign;
     var EMPTY_OBJ = {};
+    var onRE = /^on[^a-z]/;
+    var isOn = function (key) { return onRE.test(key); };
 
     var createDep = function (effects) {
         var dep = new Set(effects);
@@ -486,6 +488,163 @@ var Vue = (function (exports) {
         }
     }
 
+    function createRenderer(options) {
+        return baseCreateRenderer(options);
+    }
+    function baseCreateRenderer(options) {
+        var hostInsert = options.insert, hostPatchProp = options.patchProp, hostCreateElement = options.createElement, hostSetElementText = options.setElementText;
+        var processElement = function (oldVNode, newVNode, container, anchor) {
+            if (oldVNode == null) {
+                // 挂载
+                mountElement(newVNode, container, anchor);
+            }
+            else {
+                // 更新
+                patchElement(oldVNode, newVNode);
+            }
+        };
+        var mountElement = function (vnode, container, anchor) {
+            var type = vnode.type, props = vnode.props, shapeFlag = vnode.shapeFlag;
+            // 创建element
+            var el = (vnode.el = hostCreateElement(type));
+            if (shapeFlag & 8 /* ShapeFlags.TEXT_CHILDREN */) {
+                // 设置文本
+                hostSetElementText(el, vnode.children);
+            }
+            // 设置props
+            if (props) {
+                for (var key in props) {
+                    hostPatchProp(el, key, null, props[key]);
+                }
+            }
+            // 插入
+            hostInsert(el, container, anchor);
+        };
+        var patchElement = function (oldVNode, newVNode) {
+            var el = (newVNode.el = oldVNode.el);
+            var oldProps = oldVNode.props || EMPTY_OBJ;
+            var newProps = newVNode.props || EMPTY_OBJ;
+            patchChildren(oldVNode, newVNode, el);
+            patchProps(el, newVNode, oldProps, newProps);
+        };
+        var patchChildren = function (oldVNode, newVNode, container, anchor) {
+            var c1 = oldVNode && oldVNode.children;
+            var c2 = newVNode && newVNode.children;
+            var prevShapeFlag = oldVNode ? oldVNode.shapeFlag : 0;
+            var newShapeFlag = newVNode.shapeFlag;
+            if (newShapeFlag & 8 /* ShapeFlags.TEXT_CHILDREN */) {
+                if (c2 !== c1) {
+                    // 挂载新的子节点文本
+                    hostSetElementText(container, c2);
+                }
+            }
+            else {
+                if (prevShapeFlag & 16 /* ShapeFlags.ARRAY_CHILDREN */) ;
+                else {
+                    if (prevShapeFlag & 8 /* ShapeFlags.TEXT_CHILDREN */) {
+                        // 删除旧节点text
+                        hostSetElementText(container, "");
+                    }
+                }
+            }
+        };
+        var patchProps = function (el, vnode, oldProps, newProps) {
+            if (oldProps !== newProps) {
+                for (var key in newProps) {
+                    var next = newProps[key];
+                    var prev = oldProps[key];
+                    if (next !== prev) {
+                        hostPatchProp(el, key, prev, next);
+                    }
+                }
+                if (oldProps !== EMPTY_OBJ) {
+                    for (var key in oldProps) {
+                        // 对于老的props中有的，但是新的没有的，就不用留一个空值，而是删除
+                        if (!(key in newProps)) {
+                            hostPatchProp(el, key, oldProps[key], null);
+                        }
+                    }
+                }
+            }
+        };
+        var patch = function (oldVNode, newVNode, container, anchor) {
+            if (anchor === void 0) { anchor = null; }
+            if (oldVNode === newVNode) {
+                return;
+            }
+            var type = newVNode.type, shapeFlag = newVNode.shapeFlag;
+            switch (type) {
+                case Text:
+                    break;
+                case Comment:
+                    break;
+                case Fragment:
+                    break;
+                default:
+                    if (shapeFlag & 1 /* ShapeFlags.ELEMENT */) {
+                        processElement(oldVNode, newVNode, container, anchor);
+                    }
+            }
+        };
+        // 渲染：把vnode渲染到指定container下
+        var render = function (vnode, container) {
+            if (vnode === null) ;
+            else {
+                patch(container._vnode || null, vnode, container);
+            }
+            container._vnode = vnode;
+        };
+        return {
+            render: render,
+        };
+    }
+
+    var doc = document;
+    var nodeOps = {
+        insert: function (child, parent, anchor) {
+            parent.insertBefore(child, anchor || null);
+        },
+        createElement: function (tag) {
+            var el = doc.createElement(tag);
+            return el;
+        },
+        setElementText: function (el, text) {
+            el.textContent = text;
+        },
+    };
+
+    function patchClass(el, value) {
+        if (value === null) {
+            el.removeAttribute("class");
+        }
+        else {
+            el.className = value;
+        }
+    }
+
+    var patchProp = function (el, key, prevValue, nextValue) {
+        if (key === "class") {
+            patchClass(el, nextValue);
+        }
+        else if (key === "style") ;
+        else if (isOn(key)) ;
+        else ;
+    };
+
+    var rendererOptions = extend({ patchProp: patchProp }, nodeOps);
+    var renderer;
+    function ensureRenderer() {
+        return renderer || (renderer = createRenderer(rendererOptions));
+    }
+    var render = function () {
+        var _a;
+        var args = [];
+        for (var _i = 0; _i < arguments.length; _i++) {
+            args[_i] = arguments[_i];
+        }
+        (_a = ensureRenderer()).render.apply(_a, __spreadArray([], __read(args), false));
+    };
+
     exports.Comment = Comment;
     exports.Fragment = Fragment;
     exports.Text = Text;
@@ -495,6 +654,7 @@ var Vue = (function (exports) {
     exports.queuePreFlushCb = queuePreFlushCb;
     exports.reactive = reactive;
     exports.ref = ref;
+    exports.render = render;
     exports.watch = watch;
 
     Object.defineProperty(exports, '__esModule', { value: true });
