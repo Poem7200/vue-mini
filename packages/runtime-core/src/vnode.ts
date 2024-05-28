@@ -17,6 +17,7 @@ export interface VNode {
   props: any;
   children: any;
   shapeFlag: number;
+  key: any;
 }
 
 export function isVNode(value: any): value is VNode {
@@ -82,4 +83,8 @@ export function normalizeChildren(vnode: VNode, children: unknown) {
 
   vnode.children = children;
   vnode.shapeFlag |= type;
+}
+
+export function isSameVNodeType(oldVNode: VNode, newVNode: VNode) {
+  return oldVNode.type === newVNode.type && oldVNode.key === newVNode.key;
 }

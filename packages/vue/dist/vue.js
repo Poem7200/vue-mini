@@ -463,6 +463,9 @@ var Vue = (function (exports) {
         vnode.children = children;
         vnode.shapeFlag |= type;
     }
+    function isSameVNodeType(oldVNode, newVNode) {
+        return oldVNode.type === newVNode.type && oldVNode.key === newVNode.key;
+    }
 
     function h(type, propsOrChildren, children) {
         var l = arguments.length;
@@ -492,7 +495,7 @@ var Vue = (function (exports) {
         return baseCreateRenderer(options);
     }
     function baseCreateRenderer(options) {
-        var hostInsert = options.insert, hostPatchProp = options.patchProp, hostCreateElement = options.createElement, hostSetElementText = options.setElementText;
+        var hostInsert = options.insert, hostPatchProp = options.patchProp, hostCreateElement = options.createElement, hostSetElementText = options.setElementText, hostRemove = options.remove;
         var processElement = function (oldVNode, newVNode, container, anchor) {
             if (oldVNode == null) {
                 // 挂载
@@ -572,6 +575,11 @@ var Vue = (function (exports) {
             if (oldVNode === newVNode) {
                 return;
             }
+            // 判断新旧节点是否是同一元素
+            if (oldVNode && !isSameVNodeType(oldVNode, newVNode)) {
+                unmount(oldVNode);
+                oldVNode = null;
+            }
             var type = newVNode.type, shapeFlag = newVNode.shapeFlag;
             switch (type) {
                 case Text:
@@ -585,6 +593,9 @@ var Vue = (function (exports) {
                         processElement(oldVNode, newVNode, container, anchor);
                     }
             }
+        };
+        var unmount = function (vnode) {
+            hostRemove(vnode.el);
         };
         // 渲染：把vnode渲染到指定container下
         var render = function (vnode, container) {
@@ -610,6 +621,12 @@ var Vue = (function (exports) {
         },
         setElementText: function (el, text) {
             el.textContent = text;
+        },
+        remove: function (child) {
+            var parent = child.parentNode;
+            if (parent) {
+                parent.removeChild(child);
+            }
         },
     };
 

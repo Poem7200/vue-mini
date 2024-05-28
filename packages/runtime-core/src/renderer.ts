@@ -1,5 +1,5 @@
 import { EMPTY_OBJ, ShapeFlags } from "@vue/shared";
-import { Comment, Fragment, Text } from "./vnode";
+import { Comment, Fragment, Text, isSameVNodeType } from "./vnode";
 
 export interface RendererOptions {
   // 为指定的element的prop打补丁
@@ -10,6 +10,7 @@ export interface RendererOptions {
   insert(el, parent: Element, anchor?): void;
   // 创建指定的element
   createElement(type: string);
+  remove(el: Element);
 }
 
 export function createRenderer(options: RendererOptions) {
@@ -22,6 +23,7 @@ function baseCreateRenderer(options: RendererOptions): any {
     patchProp: hostPatchProp,
     createElement: hostCreateElement,
     setElementText: hostSetElementText,
+    remove: hostRemove,
   } = options;
 
   const processElement = (oldVNode, newVNode, container, anchor) => {
@@ -127,6 +129,12 @@ function baseCreateRenderer(options: RendererOptions): any {
       return;
     }
 
+    // 判断新旧节点是否是同一元素
+    if (oldVNode && !isSameVNodeType(oldVNode, newVNode)) {
+      unmount(oldVNode);
+      oldVNode = null;
+    }
+
     const { type, shapeFlag } = newVNode;
 
     switch (type) {
@@ -143,6 +151,10 @@ function baseCreateRenderer(options: RendererOptions): any {
           // TODO
         }
     }
+  };
+
+  const unmount = (vnode) => {
+    hostRemove(vnode.el);
   };
 
   // 渲染：把vnode渲染到指定container下
