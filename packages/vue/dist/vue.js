@@ -662,11 +662,35 @@ var Vue = (function (exports) {
         }
     }
 
+    function patchStyle(el, prev, next) {
+        var style = el.style;
+        var isCssString = isString(style);
+        if (next && !isCssString) {
+            // 新样式挂载
+            for (var key in next) {
+                setStyle(style, key, next[key]);
+            }
+            // 旧样式处理
+            if (prev && !isString(prev)) {
+                for (var key in prev) {
+                    if (next[key] == null) {
+                        setStyle(style, key, "");
+                    }
+                }
+            }
+        }
+    }
+    function setStyle(style, name, value) {
+        style[name] = value;
+    }
+
     var patchProp = function (el, key, prevValue, nextValue) {
         if (key === "class") {
             patchClass(el, nextValue);
         }
-        else if (key === "style") ;
+        else if (key === "style") {
+            patchStyle(el, prevValue, nextValue);
+        }
         else if (isOn(key)) ;
         else if (shouldSetAsProp(el, key)) {
             patchDOMProp(el, key, nextValue);
