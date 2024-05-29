@@ -495,7 +495,7 @@ var Vue = (function (exports) {
         return baseCreateRenderer(options);
     }
     function baseCreateRenderer(options) {
-        var hostInsert = options.insert, hostPatchProp = options.patchProp, hostCreateElement = options.createElement, hostSetElementText = options.setElementText, hostRemove = options.remove, hostCreateText = options.createText, hostSetText = options.setText;
+        var hostInsert = options.insert, hostPatchProp = options.patchProp, hostCreateElement = options.createElement, hostSetElementText = options.setElementText, hostRemove = options.remove, hostCreateText = options.createText, hostSetText = options.setText, hostCreateComment = options.createComment;
         var processText = function (oldVNode, newVNode, container, anchor) {
             if (oldVNode == null) {
                 // 挂载
@@ -508,6 +508,15 @@ var Vue = (function (exports) {
                 if (newVNode.children !== oldVNode.children) {
                     hostSetText(el, newVNode.children);
                 }
+            }
+        };
+        var processComment = function (oldVNode, newVNode, container, anchor) {
+            if (oldVNode == null) {
+                newVNode.el = hostCreateComment(newVNode.children);
+                hostInsert(newVNode.el, container, anchor);
+            }
+            else {
+                newVNode.el = oldVNode.el;
             }
         };
         var processElement = function (oldVNode, newVNode, container, anchor) {
@@ -600,6 +609,7 @@ var Vue = (function (exports) {
                     processText(oldVNode, newVNode, container, anchor);
                     break;
                 case Comment:
+                    processComment(oldVNode, newVNode, container, anchor);
                     break;
                 case Fragment:
                     break;
@@ -650,6 +660,7 @@ var Vue = (function (exports) {
         },
         createText: function (text) { return doc.createTextNode(text); },
         setText: function (node, text) { return (node.nodeValue = text); },
+        createComment: function (text) { return doc.createComment(text); },
     };
 
     function patchClass(el, value) {

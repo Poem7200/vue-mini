@@ -13,6 +13,7 @@ export interface RendererOptions {
   remove(el: Element);
   createText(text: string);
   setText(node: Element, text: string);
+  createComment(text: string);
 }
 
 export function createRenderer(options: RendererOptions) {
@@ -28,6 +29,7 @@ function baseCreateRenderer(options: RendererOptions): any {
     remove: hostRemove,
     createText: hostCreateText,
     setText: hostSetText,
+    createComment: hostCreateComment,
   } = options;
 
   const processText = (oldVNode, newVNode, container, anchor) => {
@@ -41,6 +43,15 @@ function baseCreateRenderer(options: RendererOptions): any {
       if (newVNode.children !== oldVNode.children) {
         hostSetText(el, newVNode.children);
       }
+    }
+  };
+
+  const processComment = (oldVNode, newVNode, container, anchor) => {
+    if (oldVNode == null) {
+      newVNode.el = hostCreateComment(newVNode.children);
+      hostInsert(newVNode.el, container, anchor);
+    } else {
+      newVNode.el = oldVNode.el;
     }
   };
 
@@ -160,6 +171,7 @@ function baseCreateRenderer(options: RendererOptions): any {
         processText(oldVNode, newVNode, container, anchor);
         break;
       case Comment:
+        processComment(oldVNode, newVNode, container, anchor);
         break;
       case Fragment:
         break;
