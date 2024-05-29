@@ -1,5 +1,6 @@
-import { EMPTY_OBJ, ShapeFlags } from "@vue/shared";
+import { EMPTY_OBJ, ShapeFlags, isString } from "@vue/shared";
 import { Comment, Fragment, Text, isSameVNodeType } from "./vnode";
+import { normalizeVNode } from "./componentRenderUtils";
 
 export interface RendererOptions {
   // 为指定的element的prop打补丁
@@ -65,6 +66,14 @@ function baseCreateRenderer(options: RendererOptions): any {
     }
   };
 
+  const processFragment = (oldVNode, newVNode, container, anchor) => {
+    if (oldVNode == null) {
+      mountChildren(newVNode.children, container, anchor);
+    } else {
+      patchChildren(oldVNode, newVNode, container, anchor);
+    }
+  };
+
   const mountElement = (vnode, container, anchor) => {
     const { type, props, shapeFlag } = vnode;
     // 创建element
@@ -95,6 +104,17 @@ function baseCreateRenderer(options: RendererOptions): any {
     patchChildren(oldVNode, newVNode, el, null);
 
     patchProps(el, newVNode, oldProps, newProps);
+  };
+
+  const mountChildren = (children, container, anchor) => {
+    if (isString(children)) {
+      children = children.split("");
+    }
+
+    for (let i = 0; i < children.length; i++) {
+      const child = (children[i] = normalizeVNode(children[i]));
+      patch(null, child, container, anchor);
+    }
   };
 
   const patchChildren = (oldVNode, newVNode, container, anchor) => {
@@ -174,6 +194,7 @@ function baseCreateRenderer(options: RendererOptions): any {
         processComment(oldVNode, newVNode, container, anchor);
         break;
       case Fragment:
+        processFragment(oldVNode, newVNode, container, anchor);
         break;
       default:
         if (shapeFlag & ShapeFlags.ELEMENT) {
