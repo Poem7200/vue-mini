@@ -495,7 +495,21 @@ var Vue = (function (exports) {
         return baseCreateRenderer(options);
     }
     function baseCreateRenderer(options) {
-        var hostInsert = options.insert, hostPatchProp = options.patchProp, hostCreateElement = options.createElement, hostSetElementText = options.setElementText, hostRemove = options.remove;
+        var hostInsert = options.insert, hostPatchProp = options.patchProp, hostCreateElement = options.createElement, hostSetElementText = options.setElementText, hostRemove = options.remove, hostCreateText = options.createText, hostSetText = options.setText;
+        var processText = function (oldVNode, newVNode, container, anchor) {
+            if (oldVNode == null) {
+                // 挂载
+                newVNode.el = hostCreateText(newVNode.children);
+                hostInsert(newVNode.el, container, anchor);
+            }
+            else {
+                // 更新
+                var el = (newVNode.el = oldVNode.el);
+                if (newVNode.children !== oldVNode.children) {
+                    hostSetText(el, newVNode.children);
+                }
+            }
+        };
         var processElement = function (oldVNode, newVNode, container, anchor) {
             if (oldVNode == null) {
                 // 挂载
@@ -583,6 +597,7 @@ var Vue = (function (exports) {
             var type = newVNode.type, shapeFlag = newVNode.shapeFlag;
             switch (type) {
                 case Text:
+                    processText(oldVNode, newVNode, container, anchor);
                     break;
                 case Comment:
                     break;
@@ -633,6 +648,8 @@ var Vue = (function (exports) {
                 parent.removeChild(child);
             }
         },
+        createText: function (text) { return doc.createTextNode(text); },
+        setText: function (node, text) { return (node.nodeValue = text); },
     };
 
     function patchClass(el, value) {
@@ -684,6 +701,35 @@ var Vue = (function (exports) {
         style[name] = value;
     }
 
+    function patchEvent(el, rawName, prevValue, nextValue) {
+        var invokers = el._vei || (el._vei = {});
+        var existingInvoker = invokers[rawName];
+        if (nextValue && existingInvoker) {
+            existingInvoker.value = nextValue;
+        }
+        else {
+            var name_1 = parseName(rawName);
+            if (nextValue) {
+                var invoker = (invokers[rawName] = createInvoker(nextValue));
+                el.addEventListener(name_1, invoker);
+            }
+            else if (existingInvoker) {
+                el.removeEventListener(name_1, existingInvoker);
+                invokers[rawName] = undefined;
+            }
+        }
+    }
+    function parseName(name) {
+        return name.slice(2).toLowerCase();
+    }
+    function createInvoker(initialValue) {
+        var invoker = function (e) {
+            invoker.value && invoker.value();
+        };
+        invoker.value = initialValue;
+        return invoker;
+    }
+
     var patchProp = function (el, key, prevValue, nextValue) {
         if (key === "class") {
             patchClass(el, nextValue);
@@ -691,7 +737,9 @@ var Vue = (function (exports) {
         else if (key === "style") {
             patchStyle(el, prevValue, nextValue);
         }
-        else if (isOn(key)) ;
+        else if (isOn(key)) {
+            patchEvent(el, key, prevValue, nextValue);
+        }
         else if (shouldSetAsProp(el, key)) {
             patchDOMProp(el, key, nextValue);
         }
