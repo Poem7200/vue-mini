@@ -1,6 +1,9 @@
 import { EMPTY_OBJ, ShapeFlags, isString } from "@vue/shared";
 import { Comment, Fragment, Text, isSameVNodeType } from "./vnode";
-import { normalizeVNode } from "./componentRenderUtils";
+import { normalizeVNode, renderComponentRoot } from "./componentRenderUtils";
+import { createComponentInstance, setupComponent } from "./component";
+import { ReactiveEffect } from "packages/reactivity/src/effect";
+import { queuePreFlushCb } from "./scheduler";
 
 export interface RendererOptions {
   // 为指定的element的prop打补丁
@@ -72,6 +75,43 @@ function baseCreateRenderer(options: RendererOptions): any {
     } else {
       patchChildren(oldVNode, newVNode, container, anchor);
     }
+  };
+
+  const processComponent = (oldVNode, newVNode, container, anchor) => {
+    if (oldVNode == null) {
+      mountComponent(newVNode, container, anchor);
+    }
+  };
+
+  const mountComponent = (initialVNode, container, anchor) => {
+    initialVNode.component = createComponentInstance(initialVNode);
+    const instance = initialVNode.component;
+
+    setupComponent(instance);
+
+    setupRenderEffect(instance, initialVNode, container, anchor);
+  };
+
+  const setupRenderEffect = (instance, initialVNode, container, anchor) => {
+    const componentUpdateFn = () => {
+      if (!instance.isMounted) {
+        const subTree = (instance.subTree = renderComponentRoot(instance));
+
+        patch(null, subTree, container, anchor);
+
+        initialVNode.el = subTree.el;
+      } else {
+      }
+    };
+
+    const effect = (instance.effect = new ReactiveEffect(
+      componentUpdateFn,
+      () => queuePreFlushCb(update)
+    ));
+
+    const update = (instance.update = () => effect.run());
+
+    update();
   };
 
   const mountElement = (vnode, container, anchor) => {
@@ -200,7 +240,8 @@ function baseCreateRenderer(options: RendererOptions): any {
         if (shapeFlag & ShapeFlags.ELEMENT) {
           processElement(oldVNode, newVNode, container, anchor);
         } else if (shapeFlag & ShapeFlags.COMPONENT) {
-          // TODO
+          // 组件挂载
+          processComponent(oldVNode, newVNode, container, anchor);
         }
     }
   };

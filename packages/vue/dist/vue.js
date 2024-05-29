@@ -491,6 +491,19 @@ var Vue = (function (exports) {
         }
     }
 
+    function renderComponentRoot(instance) {
+        var vnode = instance.vnode, render = instance.render;
+        var result;
+        try {
+            if (vnode.shapeFlag & 4 /* ShapeFlags.STATEFUL_COMPONENT */) {
+                result = normalizeVNode(render());
+            }
+        }
+        catch (err) {
+            console.error(err);
+        }
+        return result;
+    }
     function normalizeVNode(child) {
         if (typeof child === "object") {
             // child是对象意味着已经是VNode了，其实可以直接返回，这里是对标了源码
@@ -502,6 +515,31 @@ var Vue = (function (exports) {
     }
     function cloneIfMounted(child) {
         return child;
+    }
+
+    var uid = 0;
+    function createComponentInstance(vnode) {
+        var type = vnode.type;
+        var instance = {
+            uid: uid++,
+            vnode: vnode,
+            type: type,
+            subTree: null,
+            effect: null,
+            update: null,
+            render: null,
+        };
+        return instance;
+    }
+    function setupComponent(instance) {
+        setupStatefulComponent(instance);
+    }
+    function setupStatefulComponent(instance) {
+        finishComponentSetup(instance);
+    }
+    function finishComponentSetup(instance) {
+        var Component = instance.type;
+        instance.render = Component.render;
     }
 
     function createRenderer(options) {
@@ -549,6 +587,29 @@ var Vue = (function (exports) {
             else {
                 patchChildren(oldVNode, newVNode, container);
             }
+        };
+        var processComponent = function (oldVNode, newVNode, container, anchor) {
+            if (oldVNode == null) {
+                mountComponent(newVNode, container, anchor);
+            }
+        };
+        var mountComponent = function (initialVNode, container, anchor) {
+            initialVNode.component = createComponentInstance(initialVNode);
+            var instance = initialVNode.component;
+            setupComponent(instance);
+            setupRenderEffect(instance, initialVNode, container, anchor);
+        };
+        var setupRenderEffect = function (instance, initialVNode, container, anchor) {
+            var componentUpdateFn = function () {
+                if (!instance.isMounted) {
+                    var subTree = (instance.subTree = renderComponentRoot(instance));
+                    patch(null, subTree, container, anchor);
+                    initialVNode.el = subTree.el;
+                }
+            };
+            var effect = (instance.effect = new ReactiveEffect(componentUpdateFn, function () { return queuePreFlushCb(update); }));
+            var update = (instance.update = function () { return effect.run(); });
+            update();
         };
         var mountElement = function (vnode, container, anchor) {
             var type = vnode.type, props = vnode.props, shapeFlag = vnode.shapeFlag;
@@ -647,6 +708,10 @@ var Vue = (function (exports) {
                 default:
                     if (shapeFlag & 1 /* ShapeFlags.ELEMENT */) {
                         processElement(oldVNode, newVNode, container, anchor);
+                    }
+                    else if (shapeFlag & 6 /* ShapeFlags.COMPONENT */) {
+                        // 组件挂载
+                        processComponent(oldVNode, newVNode, container, anchor);
                     }
             }
         };

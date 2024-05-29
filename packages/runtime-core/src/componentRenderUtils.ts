@@ -1,4 +1,21 @@
+import { ShapeFlags } from "@vue/shared";
 import { Text, createVNode } from "./vnode";
+
+export function renderComponentRoot(instance) {
+  const { vnode, render } = instance;
+
+  let result;
+
+  try {
+    if (vnode.shapeFlag & ShapeFlags.STATEFUL_COMPONENT) {
+      result = normalizeVNode(render!());
+    }
+  } catch (err) {
+    console.error(err);
+  }
+
+  return result;
+}
 
 export function normalizeVNode(child) {
   if (typeof child === "object") {
