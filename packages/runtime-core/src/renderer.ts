@@ -95,9 +95,17 @@ function baseCreateRenderer(options: RendererOptions): any {
   const setupRenderEffect = (instance, initialVNode, container, anchor) => {
     const componentUpdateFn = () => {
       if (!instance.isMounted) {
+        // beforeMount和mounted生命周期
+        const { bm, m } = instance;
+
+        bm && bm();
+
         const subTree = (instance.subTree = renderComponentRoot(instance));
 
         patch(null, subTree, container, anchor);
+
+        // 挂载完成后，触发mounted
+        m && m();
 
         initialVNode.el = subTree.el;
       } else {
