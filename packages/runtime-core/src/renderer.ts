@@ -108,7 +108,24 @@ function baseCreateRenderer(options: RendererOptions): any {
         m && m();
 
         initialVNode.el = subTree.el;
+
+        // 渲染完成后，更新渲染标记
+        instance.isMounted = true;
       } else {
+        let { next, vnode } = instance;
+
+        if (!next) {
+          next = vnode;
+        }
+
+        const nextTree = renderComponentRoot(instance);
+
+        const prevTree = instance.subTree;
+        instance.subTree = nextTree;
+
+        patch(prevTree, nextTree, container, anchor);
+
+        next.el = nextTree.el;
       }
     };
 

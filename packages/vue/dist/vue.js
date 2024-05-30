@@ -654,6 +654,19 @@ var Vue = (function (exports) {
                     // 挂载完成后，触发mounted
                     m && m();
                     initialVNode.el = subTree.el;
+                    // 渲染完成后，更新渲染标记
+                    instance.isMounted = true;
+                }
+                else {
+                    var next = instance.next, vnode = instance.vnode;
+                    if (!next) {
+                        next = vnode;
+                    }
+                    var nextTree = renderComponentRoot(instance);
+                    var prevTree = instance.subTree;
+                    instance.subTree = nextTree;
+                    patch(prevTree, nextTree, container, anchor);
+                    next.el = nextTree.el;
                 }
             };
             var effect = (instance.effect = new ReactiveEffect(componentUpdateFn, function () { return queuePreFlushCb(update); }));
