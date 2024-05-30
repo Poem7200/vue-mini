@@ -60,7 +60,7 @@ function applyOptions(instance: any) {
 
   // beforeCreate在数据初始化之前
   if (beforeCreate) {
-    callHook(beforeCreate);
+    callHook(beforeCreate, instance.data);
   }
 
   if (dataOptions) {
@@ -72,17 +72,17 @@ function applyOptions(instance: any) {
 
   // 数据初始化完成后，created执行
   if (created) {
-    callHook(created);
+    callHook(created, instance.data);
   }
 
   function registerLifecycleHook(register: Function, hook?: Function) {
-    register(hook, instance);
+    register(hook?.bind(instance.data), instance);
   }
 
   registerLifecycleHook(onBeforeMount, beforeMount);
   registerLifecycleHook(onMounted, mounted);
 }
 
-function callHook(hook: Function) {
-  hook();
+function callHook(hook: Function, proxy: any) {
+  hook.bind(proxy)();
 }

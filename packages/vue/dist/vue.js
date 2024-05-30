@@ -564,7 +564,7 @@ var Vue = (function (exports) {
         var _a = instance.type, dataOptions = _a.data, beforeCreate = _a.beforeCreate, created = _a.created, beforeMount = _a.beforeMount, mounted = _a.mounted;
         // beforeCreate在数据初始化之前
         if (beforeCreate) {
-            callHook(beforeCreate);
+            callHook(beforeCreate, instance.data);
         }
         if (dataOptions) {
             var data = dataOptions();
@@ -574,16 +574,16 @@ var Vue = (function (exports) {
         }
         // 数据初始化完成后，created执行
         if (created) {
-            callHook(created);
+            callHook(created, instance.data);
         }
         function registerLifecycleHook(register, hook) {
-            register(hook, instance);
+            register(hook === null || hook === void 0 ? void 0 : hook.bind(instance.data), instance);
         }
         registerLifecycleHook(onBeforeMount, beforeMount);
         registerLifecycleHook(onMounted, mounted);
     }
-    function callHook(hook) {
-        hook();
+    function callHook(hook, proxy) {
+        hook.bind(proxy)();
     }
 
     function createRenderer(options) {
