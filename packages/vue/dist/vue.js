@@ -517,6 +517,18 @@ var Vue = (function (exports) {
         return child;
     }
 
+    function injectHook(type, hook, target) {
+        if (target) {
+            target[type] = hook;
+            return hook;
+        }
+    }
+    var createHook = function (lifecycle) {
+        return function (hook, target) { return injectHook(lifecycle, hook, target); };
+    };
+    var onBeforeMount = createHook("bm" /* LifecycleHooks.BEFORE_MOUNT */);
+    var onMounted = createHook("m" /* LifecycleHooks.MOUNTED */);
+
     var uid = 0;
     function createComponentInstance(vnode) {
         var type = vnode.type;
@@ -528,6 +540,12 @@ var Vue = (function (exports) {
             effect: null,
             update: null,
             render: null,
+            // 生命周期相关
+            isMounted: false,
+            bc: null,
+            c: null,
+            bm: null,
+            m: null,
         };
         return instance;
     }
@@ -543,13 +561,29 @@ var Vue = (function (exports) {
         applyOptions(instance);
     }
     function applyOptions(instance) {
-        var dataOptions = instance.type.data;
+        var _a = instance.type, dataOptions = _a.data, beforeCreate = _a.beforeCreate, created = _a.created, beforeMount = _a.beforeMount, mounted = _a.mounted;
+        // beforeCreate在数据初始化之前
+        if (beforeCreate) {
+            callHook(beforeCreate);
+        }
         if (dataOptions) {
             var data = dataOptions();
             if (isObject(data)) {
                 instance.data = reactive(data);
             }
         }
+        // 数据初始化完成后，created执行
+        if (created) {
+            callHook(created);
+        }
+        function registerLifecycleHook(register, hook) {
+            register(hook, instance);
+        }
+        registerLifecycleHook(onBeforeMount, beforeMount);
+        registerLifecycleHook(onMounted, mounted);
+    }
+    function callHook(hook) {
+        hook();
     }
 
     function createRenderer(options) {
@@ -612,8 +646,13 @@ var Vue = (function (exports) {
         var setupRenderEffect = function (instance, initialVNode, container, anchor) {
             var componentUpdateFn = function () {
                 if (!instance.isMounted) {
+                    // beforeMount和mounted生命周期
+                    var bm = instance.bm, m = instance.m;
+                    bm && bm();
                     var subTree = (instance.subTree = renderComponentRoot(instance));
                     patch(null, subTree, container, anchor);
+                    // 挂载完成后，触发mounted
+                    m && m();
                     initialVNode.el = subTree.el;
                 }
             };
