@@ -1,5 +1,5 @@
 import { reactive } from "@vue/reactivity";
-import { isObject } from "@vue/shared";
+import { isFunction, isObject } from "@vue/shared";
 import { onBeforeMount, onMounted } from "./apiLifecycle";
 
 let uid = 0;
@@ -38,13 +38,33 @@ export function setupComponent(instance) {
 }
 
 function setupStatefulComponent(instance) {
+  const Component = instance.type;
+
+  // 提供了两种api：composition和setup
+  const { setup } = Component;
+
+  if (setup) {
+    const setupResult = setup();
+
+    handleSetupResult(instance, setupResult);
+  } else {
+    finishComponentSetup(instance);
+  }
+}
+
+export function handleSetupResult(instance, setupResult: any) {
+  if (isFunction(setupResult)) {
+    instance.render = setupResult;
+  }
   finishComponentSetup(instance);
 }
 
 export function finishComponentSetup(instance) {
   const Component = instance.type;
 
-  instance.render = Component.render;
+  if (!instance.render) {
+    instance.render = Component.render;
+  }
 
   applyOptions(instance);
 }
