@@ -147,7 +147,7 @@ function baseCreateRenderer(options: RendererOptions): any {
       // 设置文本
       hostSetElementText(el, vnode.children as string);
     } else if (shapeFlag & ShapeFlags.ARRAY_CHILDREN) {
-      // TODO:
+      mountChildren(vnode.children, el, anchor);
     }
 
     // 设置props
@@ -201,7 +201,8 @@ function baseCreateRenderer(options: RendererOptions): any {
     } else {
       if (prevShapeFlag & ShapeFlags.ARRAY_CHILDREN) {
         if (newShapeFlag & ShapeFlags.ARRAY_CHILDREN) {
-          // TODO: diff计算
+          // diff计算
+          patchKeyedChildren(c1, c2, container, anchor);
         } else {
           // TODO: 卸载
         }
@@ -214,6 +215,31 @@ function baseCreateRenderer(options: RendererOptions): any {
           // TODO: 单独新子节点挂载
         }
       }
+    }
+  };
+
+  const patchKeyedChildren = (
+    oldChildren,
+    newChildren,
+    container,
+    parentAnchor
+  ) => {
+    let i = 0;
+    const newChildrenLength = newChildren.length;
+
+    let oldChildrenEnd = oldChildren.length - 1;
+    let newChildrenEnd = newChildrenLength - 1;
+
+    // 场景1: 自前向后
+    while (i <= oldChildrenEnd && i <= newChildrenEnd) {
+      const oldVNode = oldChildren[i];
+      const newVNode = normalizeVNode(newChildren[i]);
+      if (isSameVNodeType(oldVNode, newVNode)) {
+        patch(oldVNode, newVNode, container, null);
+      } else {
+        break;
+      }
+      i++;
     }
   };
 

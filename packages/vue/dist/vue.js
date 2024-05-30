@@ -441,6 +441,7 @@ var Vue = (function (exports) {
             type: type,
             props: props,
             shapeFlag: shapeFlag,
+            key: (props === null || props === void 0 ? void 0 : props.key) || null,
         };
         normalizeChildren(vnode, children);
         return vnode;
@@ -698,6 +699,9 @@ var Vue = (function (exports) {
                 // 设置文本
                 hostSetElementText(el, vnode.children);
             }
+            else if (shapeFlag & 16 /* ShapeFlags.ARRAY_CHILDREN */) {
+                mountChildren(vnode.children, el, anchor);
+            }
             // 设置props
             if (props) {
                 for (var key in props) {
@@ -735,13 +739,36 @@ var Vue = (function (exports) {
                 }
             }
             else {
-                if (prevShapeFlag & 16 /* ShapeFlags.ARRAY_CHILDREN */) ;
+                if (prevShapeFlag & 16 /* ShapeFlags.ARRAY_CHILDREN */) {
+                    if (newShapeFlag & 16 /* ShapeFlags.ARRAY_CHILDREN */) {
+                        // diff计算
+                        patchKeyedChildren(c1, c2, container);
+                    }
+                }
                 else {
                     if (prevShapeFlag & 8 /* ShapeFlags.TEXT_CHILDREN */) {
                         // 删除旧节点text
                         hostSetElementText(container, "");
                     }
                 }
+            }
+        };
+        var patchKeyedChildren = function (oldChildren, newChildren, container, parentAnchor) {
+            var i = 0;
+            var newChildrenLength = newChildren.length;
+            var oldChildrenEnd = oldChildren.length - 1;
+            var newChildrenEnd = newChildrenLength - 1;
+            // 场景1: 自前向后
+            while (i <= oldChildrenEnd && i <= newChildrenEnd) {
+                var oldVNode = oldChildren[i];
+                var newVNode = normalizeVNode(newChildren[i]);
+                if (isSameVNodeType(oldVNode, newVNode)) {
+                    patch(oldVNode, newVNode, container, null);
+                }
+                else {
+                    break;
+                }
+                i++;
             }
         };
         var patchProps = function (el, vnode, oldProps, newProps) {
