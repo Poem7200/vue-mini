@@ -770,6 +770,19 @@ var Vue = (function (exports) {
                 }
                 i++;
             }
+            // 场景2：自后向前
+            while (i <= oldChildrenEnd && i <= newChildrenEnd) {
+                var oldVNode = oldChildren[oldChildrenEnd];
+                var newVNode = normalizeVNode(newChildren[newChildrenEnd]);
+                if (isSameVNodeType(oldVNode, newVNode)) {
+                    patch(oldVNode, newVNode, container, null);
+                }
+                else {
+                    break;
+                }
+                oldChildrenEnd--;
+                newChildrenEnd--;
+            }
         };
         var patchProps = function (el, vnode, oldProps, newProps) {
             if (oldProps !== newProps) {
