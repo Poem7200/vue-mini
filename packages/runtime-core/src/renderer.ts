@@ -254,6 +254,19 @@ function baseCreateRenderer(options: RendererOptions): any {
       oldChildrenEnd--;
       newChildrenEnd--;
     }
+
+    // 场景3：新节点多于旧节点
+    if (i > oldChildrenEnd) {
+      if (i <= newChildrenEnd) {
+        const nextPos = newChildrenEnd + 1;
+        const anchor =
+          nextPos < newChildrenLength ? newChildren[nextPos].el : parentAnchor;
+        while (i <= newChildrenEnd) {
+          patch(null, normalizeVNode(newChildren[i]), container, anchor);
+          i++;
+        }
+      }
+    }
   };
 
   const patchProps = (el: Element, vnode, oldProps, newProps) => {

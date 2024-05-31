@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <script src="../../dist/vue.js"></script>
+  </head>
+  <body>
+    <div id="app"></div>
+  </body>
+
+  <script>
+    // 新节点多于旧节点
+    const { h, render } = Vue;
+
+    // 2 新增的在前面
+    const vnode3 = h("ul", [
+      h("li", { key: 1 }, "a"),
+      h("li", { key: 2 }, "b"),
+    ]);
+
+    render(vnode3, document.querySelector("#app"));
+
+    setTimeout(() => {
+      const vnode4 = h("ul", [
+        h("li", { key: 3 }, "c"),
+        h("li", { key: 1 }, "a"),
+        h("li", { key: 2 }, "b"),
+      ]);
+
+      render(vnode4, document.querySelector("#app"));
+    }, 2000);
+  </script>
+</html>
