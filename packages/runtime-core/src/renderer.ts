@@ -267,6 +267,13 @@ function baseCreateRenderer(options: RendererOptions): any {
         }
       }
     }
+    // 场景4：旧节点多于新节点
+    else if (i > newChildrenEnd) {
+      while (i <= oldChildrenEnd) {
+        unmount(oldChildren[i]);
+        i++;
+      }
+    }
   };
 
   const patchProps = (el: Element, vnode, oldProps, newProps) => {
