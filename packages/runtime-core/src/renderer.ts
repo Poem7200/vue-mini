@@ -274,6 +274,72 @@ function baseCreateRenderer(options: RendererOptions): any {
         i++;
       }
     }
+    // 场景5：乱序
+    else {
+      const oldStartIndex = i;
+      const newStartIndex = i;
+      const keyToNewIndexMap = new Map();
+      for (i = newStartIndex; i <= newChildrenEnd; i++) {
+        const nextChild = normalizeVNode(newChildren[i]);
+        if (nextChild.key != null) {
+          keyToNewIndexMap.set(nextChild.key, i);
+        }
+      }
+
+      let j;
+      let patched = 0;
+      const toBePatched = newChildrenEnd - newStartIndex + 1;
+      let moved = false;
+      let maxNewIndexSoFar = 0;
+      const newIndexToOldIndexMap = new Array(toBePatched);
+      for (i = 0; i < toBePatched; i++) newIndexToOldIndexMap[i] = 0;
+      for (i = oldStartIndex; i <= oldChildrenEnd; i++) {
+        const prevChild = oldChildren[i];
+        if (patched >= toBePatched) {
+          unmount(prevChild);
+          continue;
+        }
+        let newIndex;
+        if (prevChild.key != null) {
+          newIndex = keyToNewIndexMap.get(prevChild.key);
+        }
+
+        if (newIndex === undefined) {
+          unmount(prevChild);
+        } else {
+          newIndexToOldIndexMap[newIndex - newStartIndex] = i + 1;
+          if (newIndex >= maxNewIndexSoFar) {
+            maxNewIndexSoFar = newIndex;
+          } else {
+            moved = true;
+          }
+          patch(prevChild, newChildren[newIndex], container, null);
+          patched++;
+        }
+      }
+
+      const increasingNewIndexSequence = moved
+        ? getSequence(newIndexToOldIndexMap)
+        : [];
+      j = increasingNewIndexSequence.length - 1;
+      for (i = toBePatched - 1; i >= 0; i--) {
+        const nextIndex = newStartIndex + i;
+        const nextChild = newChildren[nextIndex];
+        const anchor =
+          nextIndex + 1 < newChildrenLength
+            ? newChildren[nextIndex + 1].el
+            : parentAnchor;
+        if (newIndexToOldIndexMap[i] === 0) {
+          patch(null, nextChild, container, anchor);
+        } else if (moved) {
+          if (j < 0 || i !== increasingNewIndexSequence[j]) {
+            move(nextChild, container, anchor);
+          } else {
+            j--;
+          }
+        }
+      }
+    }
   };
 
   const patchProps = (el: Element, vnode, oldProps, newProps) => {
@@ -348,7 +414,55 @@ function baseCreateRenderer(options: RendererOptions): any {
     container._vnode = vnode;
   };
 
+  // 移动节点到指定位置
+  const move = (vnode, container, anchor) => {
+    const { el } = vnode;
+    hostInsert(el!, container, anchor);
+  };
+
   return {
     render,
   };
+}
+
+// 获取最长递增子序列的下标
+function getSequence(arr: number[]): number[] {
+  const p = arr.slice();
+  const result = [0];
+  let i, j, u, v, c;
+  const len = arr.length;
+  for (i = 0; i < len; i++) {
+    const arrI = arr[i];
+    if (arrI !== 0) {
+      j = result[result.length - 1];
+      if (arr[j] < arrI) {
+        p[i] = j;
+        result.push(i);
+        continue;
+      }
+      u = 0;
+      v = result.length - 1;
+      while (u < v) {
+        c = (u + v) >> 1;
+        if (arr[result[c]] < arrI) {
+          u = c + 1;
+        } else {
+          v = c;
+        }
+      }
+      if (arrI < arr[result[u]]) {
+        if (u > 0) {
+          p[i] = result[u - 1];
+        }
+        result[u] = i;
+      }
+    }
+  }
+  u = result.length;
+  v = result[u - 1];
+  while (u-- > 0) {
+    result[u] = v;
+    v = p[v];
+  }
+  return result;
 }

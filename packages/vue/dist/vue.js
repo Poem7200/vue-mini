@@ -801,6 +801,73 @@ var Vue = (function (exports) {
                     i++;
                 }
             }
+            // 场景5：乱序
+            else {
+                var oldStartIndex = i;
+                var newStartIndex = i;
+                var keyToNewIndexMap = new Map();
+                for (i = newStartIndex; i <= newChildrenEnd; i++) {
+                    var nextChild = normalizeVNode(newChildren[i]);
+                    if (nextChild.key != null) {
+                        keyToNewIndexMap.set(nextChild.key, i);
+                    }
+                }
+                var j = void 0;
+                var patched = 0;
+                var toBePatched = newChildrenEnd - newStartIndex + 1;
+                var moved = false;
+                var maxNewIndexSoFar = 0;
+                var newIndexToOldIndexMap = new Array(toBePatched);
+                for (i = 0; i < toBePatched; i++)
+                    newIndexToOldIndexMap[i] = 0;
+                for (i = oldStartIndex; i <= oldChildrenEnd; i++) {
+                    var prevChild = oldChildren[i];
+                    if (patched >= toBePatched) {
+                        unmount(prevChild);
+                        continue;
+                    }
+                    var newIndex = void 0;
+                    if (prevChild.key != null) {
+                        newIndex = keyToNewIndexMap.get(prevChild.key);
+                    }
+                    if (newIndex === undefined) {
+                        unmount(prevChild);
+                    }
+                    else {
+                        newIndexToOldIndexMap[newIndex - newStartIndex] = i + 1;
+                        if (newIndex >= maxNewIndexSoFar) {
+                            maxNewIndexSoFar = newIndex;
+                        }
+                        else {
+                            moved = true;
+                        }
+                        patch(prevChild, newChildren[newIndex], container, null);
+                        patched++;
+                    }
+                }
+                var increasingNewIndexSequence = moved
+                    ? getSequence(newIndexToOldIndexMap)
+                    : [];
+                j = increasingNewIndexSequence.length - 1;
+                for (i = toBePatched - 1; i >= 0; i--) {
+                    var nextIndex = newStartIndex + i;
+                    var nextChild = newChildren[nextIndex];
+                    var anchor = nextIndex + 1 < newChildrenLength
+                        ? newChildren[nextIndex + 1].el
+                        : parentAnchor;
+                    if (newIndexToOldIndexMap[i] === 0) {
+                        patch(null, nextChild, container, anchor);
+                    }
+                    else if (moved) {
+                        if (j < 0 || i !== increasingNewIndexSequence[j]) {
+                            move(nextChild, container, anchor);
+                        }
+                        else {
+                            j--;
+                        }
+                    }
+                }
+            }
         };
         var patchProps = function (el, vnode, oldProps, newProps) {
             if (oldProps !== newProps) {
@@ -868,9 +935,56 @@ var Vue = (function (exports) {
             }
             container._vnode = vnode;
         };
+        // 移动节点到指定位置
+        var move = function (vnode, container, anchor) {
+            var el = vnode.el;
+            hostInsert(el, container, anchor);
+        };
         return {
             render: render,
         };
+    }
+    // 获取最长递增子序列的下标
+    function getSequence(arr) {
+        var p = arr.slice();
+        var result = [0];
+        var i, j, u, v, c;
+        var len = arr.length;
+        for (i = 0; i < len; i++) {
+            var arrI = arr[i];
+            if (arrI !== 0) {
+                j = result[result.length - 1];
+                if (arr[j] < arrI) {
+                    p[i] = j;
+                    result.push(i);
+                    continue;
+                }
+                u = 0;
+                v = result.length - 1;
+                while (u < v) {
+                    c = (u + v) >> 1;
+                    if (arr[result[c]] < arrI) {
+                        u = c + 1;
+                    }
+                    else {
+                        v = c;
+                    }
+                }
+                if (arrI < arr[result[u]]) {
+                    if (u > 0) {
+                        p[i] = result[u - 1];
+                    }
+                    result[u] = i;
+                }
+            }
+        }
+        u = result.length;
+        v = result[u - 1];
+        while (u-- > 0) {
+            result[u] = v;
+            v = p[v];
+        }
+        return result;
     }
 
     var doc = document;
