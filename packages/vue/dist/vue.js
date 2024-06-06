@@ -1135,11 +1135,17 @@ var Vue = (function (exports) {
             source: content,
         };
     }
+    function createRoot(children) {
+        return {
+            type: 0 /* NodeTypes.ROOT */,
+            children: children,
+            loc: {},
+        };
+    }
     function baseParse(content) {
         var context = createParserContext(content);
         var children = parseChildren(context, []);
-        console.log(children);
-        return {};
+        return createRoot(children);
     }
     function parseChildren(context, ancestors) {
         var nodes = [];
@@ -1203,7 +1209,7 @@ var Vue = (function (exports) {
         return {
             type: 1 /* NodeTypes.ELEMENT */,
             tag: tag,
-            TagType: 0 /* ElementTypes.ELEMENT */,
+            tagType: 0 /* ElementTypes.ELEMENT */,
             props: [],
             children: [],
         };

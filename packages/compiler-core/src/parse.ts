@@ -15,14 +15,20 @@ function createParserContext(content: string): ParserContext {
   };
 }
 
+export function createRoot(children) {
+  return {
+    type: NodeTypes.ROOT,
+    children,
+    loc: {},
+  };
+}
+
 export function baseParse(content: string) {
   const context = createParserContext(content);
 
   const children = parseChildren(context, []);
 
-  console.log(children);
-
-  return {};
+  return createRoot(children);
 }
 
 function parseChildren(context: ParserContext, ancestors) {
@@ -112,7 +118,7 @@ function parseTag(context: ParserContext, type: TagType) {
   return {
     type: NodeTypes.ELEMENT,
     tag,
-    TagType: ElementTypes.ELEMENT,
+    tagType: ElementTypes.ELEMENT,
     props: [],
     children: [],
   };
