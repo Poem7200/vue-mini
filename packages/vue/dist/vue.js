@@ -1137,8 +1137,102 @@ var Vue = (function (exports) {
     }
     function baseParse(content) {
         var context = createParserContext(content);
-        console.log(context);
+        var children = parseChildren(context, []);
+        console.log(children);
         return {};
+    }
+    function parseChildren(context, ancestors) {
+        var nodes = [];
+        while (!isEnd(context, ancestors)) {
+            var s = context.source;
+            var node = void 0;
+            if (startsWith(s, "{{")) ;
+            else if (s[0] === "<") {
+                if (/[a-z]/i.test(s[1])) {
+                    node = parseElement(context, ancestors);
+                }
+            }
+            if (!node) {
+                node = parseText(context);
+            }
+            pushNode(nodes, node);
+        }
+        return nodes;
+    }
+    function parseElement(context, ancestors) {
+        var element = parseTag(context);
+        // 处理子标签
+        ancestors.push(element);
+        var children = parseChildren(context, ancestors);
+        ancestors.pop();
+        element.children = children;
+        if (startsWithEndTagOpen(context.source, element.tag)) {
+            parseTag(context);
+        }
+        return element;
+    }
+    function parseText(context) {
+        // 如果遇到下方的，表示普通文本的结束
+        var endTokens = ["<", "{{"];
+        var endIndex = context.source.length;
+        for (var i = 0; i < endTokens.length; i++) {
+            var index = context.source.indexOf(endTokens[i], 1);
+            if (index !== -1 && endIndex > index) {
+                endIndex = index;
+            }
+        }
+        var content = parseTextData(context, endIndex);
+        return {
+            type: 2 /* NodeTypes.TEXT */,
+            content: content,
+        };
+    }
+    function parseTextData(context, length) {
+        var rawText = context.source.slice(0, length);
+        advanceBy(context, length);
+        return rawText;
+    }
+    function parseTag(context, type) {
+        var match = /^<\/?([a-z][^\r\n\t\f />]*)/i.exec(context.source);
+        var tag = match[1];
+        // 右移图标
+        advanceBy(context, match[0].length);
+        // 判断是否为自闭合标签
+        var isSelfClosing = startsWith(context.source, "/>");
+        advanceBy(context, isSelfClosing ? 2 : 1);
+        return {
+            type: 1 /* NodeTypes.ELEMENT */,
+            tag: tag,
+            TagType: 0 /* ElementTypes.ELEMENT */,
+            props: [],
+            children: [],
+        };
+    }
+    function pushNode(nodes, node) {
+        nodes.push(node);
+    }
+    // 判断当前标签是否为结束标签
+    function isEnd(context, ancestors) {
+        var s = context.source;
+        if (startsWith(s, "</")) {
+            for (var i = ancestors.length - 1; i >= 0; i--) {
+                if (startsWithEndTagOpen(s, ancestors[i].tag)) {
+                    return true;
+                }
+            }
+        }
+        return !s;
+    }
+    // 判断是否为结束标签的开始
+    function startsWithEndTagOpen(source, tag) {
+        return startsWith(source, "</");
+    }
+    function startsWith(source, searchString) {
+        return source.startsWith(searchString);
+    }
+    function advanceBy(context, numberOfCharacters) {
+        var source = context.source;
+        context.source = source.slice(numberOfCharacters);
     }
 
     function baseCompile(template, options) {
