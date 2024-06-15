@@ -1,4 +1,5 @@
 import { NodeTypes } from "./ast";
+import { isSingleElementRoot } from "./hoistStatic";
 
 export interface TransformContext {
   root;
@@ -31,6 +32,16 @@ export function createTransformContext(root, { nodeTransforms = [] }) {
 export function transform(root, options) {
   const context = createTransformContext(root, options);
   traverseNode(root, context);
+
+  createRootCodegen(root);
+
+  root.helpers = [...context.helpers.keys()];
+  root.components = [];
+  root.directives = [];
+  root.imports = [];
+  root.hoists = [];
+  root.temps = [];
+  root.cached = [];
 }
 
 export function traverseNode(node, context: TransformContext) {
@@ -68,4 +79,16 @@ export function traverseChildren(parent, context: TransformContext) {
     context.childIndex = index;
     traverseNode(node, context);
   });
+}
+
+function createRootCodegen(root) {
+  const { children } = root;
+
+  // Vue2只支持单个根节点，Vue3支持多个
+  if (children.length === 1) {
+    const child = children[0];
+    if (isSingleElementRoot(root, child) && child.codegenNode) {
+      root.codegenNode = child.codegenNode;
+    }
+  }
 }
