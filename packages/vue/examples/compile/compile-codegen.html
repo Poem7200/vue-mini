@@ -15,9 +15,7 @@
 
     const template = `<div>hello world123</div>`;
 
-    const { code } = compile(template);
-
-    const renderFn = new Function(code)();
+    const renderFn = compile(template);
 
     const component = {
       render: renderFn,
