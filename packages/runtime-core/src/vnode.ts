@@ -89,3 +89,5 @@ export function normalizeChildren(vnode: VNode, children: unknown) {
 export function isSameVNodeType(oldVNode: VNode, newVNode: VNode) {
   return oldVNode.type === newVNode.type && oldVNode.key === newVNode.key;
 }
+
+export { createVNode as createElementVNode };
