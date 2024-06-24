@@ -1265,6 +1265,16 @@ var Vue = (function (exports) {
         return children.length === 1 && child.type === 1 /* NodeTypes.ELEMENT */;
     }
 
+    var _a;
+    var CREATE_ELEMENT_VNODE = Symbol("createElementVNode");
+    var CREATE_VNODE = Symbol("createVNode");
+    var TO_DISPLAY_STRING = Symbol("toDisplayString");
+    var helperNameMap = (_a = {},
+        _a[CREATE_ELEMENT_VNODE] = "createElementVNode",
+        _a[CREATE_VNODE] = "createVNode",
+        _a[TO_DISPLAY_STRING] = "toDisplayString",
+        _a);
+
     function createTransformContext(root, _a) {
         var _b = _a.nodeTransforms, nodeTransforms = _b === void 0 ? [] : _b;
         var context = {
@@ -1309,6 +1319,9 @@ var Vue = (function (exports) {
             case 0 /* NodeTypes.ROOT */:
                 traverseChildren(node, context);
                 break;
+            case 5 /* NodeTypes.INTERPOLATION */:
+                context.helper(TO_DISPLAY_STRING);
+                break;
         }
         context.currentNode = node;
         var i = exitFns.length;
@@ -1333,14 +1346,6 @@ var Vue = (function (exports) {
             }
         }
     }
-
-    var _a;
-    var CREATE_ELEMENT_VNODE = Symbol("createElementVNode");
-    var CREATE_VNODE = Symbol("createVNode");
-    var helperNameMap = (_a = {},
-        _a[CREATE_ELEMENT_VNODE] = "createElementVNode",
-        _a[CREATE_VNODE] = "createVNode",
-        _a);
 
     function createVNodeCall(context, tag, props, children) {
         if (context) {
@@ -1543,7 +1548,7 @@ var Vue = (function (exports) {
         transform(ast, extend(options, {
             nodeTransforms: [transformElement, transformText],
         }));
-        console.log(JSON.stringify(ast));
+        console.log(ast);
         return generate(ast);
     }
 

@@ -1,5 +1,6 @@
 import { NodeTypes } from "./ast";
 import { isSingleElementRoot } from "./hoistStatic";
+import { TO_DISPLAY_STRING } from "./runtimeHelpers";
 
 export interface TransformContext {
   root;
@@ -63,6 +64,9 @@ export function traverseNode(node, context: TransformContext) {
     case NodeTypes.ELEMENT:
     case NodeTypes.ROOT:
       traverseChildren(node, context);
+      break;
+    case NodeTypes.INTERPOLATION:
+      context.helper(TO_DISPLAY_STRING);
       break;
   }
 
