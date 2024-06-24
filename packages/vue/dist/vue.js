@@ -1460,6 +1460,8 @@ var Vue = (function (exports) {
         var signature = args.join(", ");
         push("function ".concat(functionName, "(").concat(signature, ") {"));
         indent();
+        push("with (_ctx) {");
+        indent();
         var hasHelpers = ast.helpers.length > 0;
         if (hasHelpers) {
             push("const { ".concat(ast.helpers.map(aliasHelper).join(", "), " } = _Vue"));
@@ -1474,6 +1476,8 @@ var Vue = (function (exports) {
         else {
             push("null");
         }
+        deindent();
+        push("}");
         deindent();
         push("}");
         return {
@@ -1496,7 +1500,37 @@ var Vue = (function (exports) {
             case 2 /* NodeTypes.TEXT */:
                 genText(node, context);
                 break;
+            case 4 /* NodeTypes.SIMPLE_EXPRESSION */:
+                genExpression(node, context);
+                break;
+            case 5 /* NodeTypes.INTERPOLATION */:
+                genInterpolation(node, context);
+                break;
+            case 8 /* NodeTypes.COMPOUND_EXPRESSION */:
+                genCompoundExpression(node, context);
+                break;
         }
+    }
+    function genCompoundExpression(node, context) {
+        for (var i = 0; i < node.children.length; i++) {
+            var child = node.children[i];
+            if (isString(child)) {
+                context.push(child);
+            }
+            else {
+                genNode(child, context);
+            }
+        }
+    }
+    function genExpression(node, context) {
+        var content = node.content, isStatic = node.isStatic;
+        context.push(isStatic ? JSON.stringify(content) : content);
+    }
+    function genInterpolation(node, context) {
+        var push = context.push, helper = context.helper;
+        push("".concat(helper(TO_DISPLAY_STRING), "("));
+        genNode(node.content, context);
+        push(")");
     }
     function genText(node, context) {
         context.push(JSON.stringify(node.content), node);

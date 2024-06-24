@@ -16,6 +16,7 @@
     const template = `<div>hello {{ msg }}</div>`;
 
     const renderFn = compile(template);
+    console.log(renderFn.toString());
 
     const component = {
       data() {
