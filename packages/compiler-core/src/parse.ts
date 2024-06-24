@@ -40,7 +40,7 @@ function parseChildren(context: ParserContext, ancestors) {
     let node;
 
     if (startsWith(s, "{{")) {
-      // TODO: 模板语法开始
+      node = parseInterpolation(context);
     } else if (s[0] === "<") {
       if (/[a-z]/i.test(s[1])) {
         node = parseElement(context, ancestors);
@@ -55,6 +55,28 @@ function parseChildren(context: ParserContext, ancestors) {
   }
 
   return nodes;
+}
+
+function parseInterpolation(context: ParserContext) {
+  // 模板表达式以{{ XX }}格式呈现
+  const [open, close] = ["{{", "}}"];
+
+  advanceBy(context, open.length);
+
+  const closeIndex = context.source.indexOf(close, open.length);
+  const preTrimContext = parseTextData(context, closeIndex);
+  const content = preTrimContext.trim();
+
+  advanceBy(context, close.length);
+
+  return {
+    type: NodeTypes.INTERPOLATION,
+    content: {
+      type: NodeTypes.SIMPLE_EXPRESSION,
+      isStatic: false,
+      content,
+    },
+  };
 }
 
 function parseElement(context: ParserContext, ancestors) {

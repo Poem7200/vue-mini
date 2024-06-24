@@ -1152,7 +1152,9 @@ var Vue = (function (exports) {
         while (!isEnd(context, ancestors)) {
             var s = context.source;
             var node = void 0;
-            if (startsWith(s, "{{")) ;
+            if (startsWith(s, "{{")) {
+                node = parseInterpolation(context);
+            }
             else if (s[0] === "<") {
                 if (/[a-z]/i.test(s[1])) {
                     node = parseElement(context, ancestors);
@@ -1164,6 +1166,23 @@ var Vue = (function (exports) {
             pushNode(nodes, node);
         }
         return nodes;
+    }
+    function parseInterpolation(context) {
+        // 模板表达式以{{ XX }}格式呈现
+        var _a = __read(["{{", "}}"], 2), open = _a[0], close = _a[1];
+        advanceBy(context, open.length);
+        var closeIndex = context.source.indexOf(close, open.length);
+        var preTrimContext = parseTextData(context, closeIndex);
+        var content = preTrimContext.trim();
+        advanceBy(context, close.length);
+        return {
+            type: 5 /* NodeTypes.INTERPOLATION */,
+            content: {
+                type: 4 /* NodeTypes.SIMPLE_EXPRESSION */,
+                isStatic: false,
+                content: content,
+            },
+        };
     }
     function parseElement(context, ancestors) {
         var element = parseTag(context);
