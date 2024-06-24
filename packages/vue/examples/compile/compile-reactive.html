@@ -16,7 +16,6 @@
     const template = `<div>hello {{ msg }}</div>`;
 
     const renderFn = compile(template);
-    console.log(renderFn.toString());
 
     const component = {
       data() {
@@ -25,6 +24,11 @@
         };
       },
       render: renderFn,
+      created() {
+        setTimeout(() => {
+          this.msg = "123";
+        }, 2000);
+      },
     };
 
     const vnode = h(component);

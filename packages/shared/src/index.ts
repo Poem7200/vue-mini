@@ -1,3 +1,4 @@
+export { toDisplayString } from "./toDisplayString";
 export * from "./shapeFlags";
 export * from "./normalizeProp";
 

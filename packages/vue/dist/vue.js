@@ -1,6 +1,10 @@
 var Vue = (function (exports) {
     'use strict';
 
+    var toDisplayString = function (val) {
+        return String(val);
+    };
+
     function normalizeClass(value) {
         var res = "";
         if (isString(value)) {
@@ -493,11 +497,11 @@ var Vue = (function (exports) {
     }
 
     function renderComponentRoot(instance) {
-        var vnode = instance.vnode, render = instance.render, data = instance.data;
+        var vnode = instance.vnode, render = instance.render, _a = instance.data, data = _a === void 0 ? {} : _a;
         var result;
         try {
             if (vnode.shapeFlag & 4 /* ShapeFlags.STATEFUL_COMPONENT */) {
-                result = normalizeVNode(render.call(data));
+                result = normalizeVNode(render.call(data, data));
             }
         }
         catch (err) {
@@ -1608,6 +1612,7 @@ var Vue = (function (exports) {
     exports.reactive = reactive;
     exports.ref = ref;
     exports.render = render;
+    exports.toDisplayString = toDisplayString;
     exports.watch = watch;
 
     Object.defineProperty(exports, '__esModule', { value: true });

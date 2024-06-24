@@ -11,3 +11,4 @@ export {
 export { render } from "@vue/runtime-dom";
 // export { compile } from "@vue/compiler-dom";
 export { compile } from "@vue/vue-compat";
+export { toDisplayString } from "@vue/shared";
