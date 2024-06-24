@@ -1513,6 +1513,9 @@ var Vue = (function (exports) {
             case 8 /* NodeTypes.COMPOUND_EXPRESSION */:
                 genCompoundExpression(node, context);
                 break;
+            case 1 /* NodeTypes.ELEMENT */:
+                genNode(node.codegenNode, context);
+                break;
         }
     }
     function genCompoundExpression(node, context) {
