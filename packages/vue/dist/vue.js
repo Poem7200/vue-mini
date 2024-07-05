@@ -1189,16 +1189,92 @@ var Vue = (function (exports) {
         };
     }
     function parseElement(context, ancestors) {
-        var element = parseTag(context);
+        var element = parseTag(context, 0 /* TagType.Start */);
         // 处理子标签
         ancestors.push(element);
         var children = parseChildren(context, ancestors);
         ancestors.pop();
         element.children = children;
         if (startsWithEndTagOpen(context.source, element.tag)) {
-            parseTag(context);
+            parseTag(context, 1 /* TagType.End */);
         }
         return element;
+    }
+    function advanceSpaces(context) {
+        var match = /^[\t\r\n\f ]+/.exec(context.source);
+        if (match) {
+            advanceBy(context, match[0].length);
+        }
+    }
+    function parseAttributes(context, type) {
+        var props = [];
+        var attributeNames = new Set();
+        while (context.source.length > 0 &&
+            !startsWith(context.source, ">") &&
+            !startsWith(context.source, "/>")) {
+            var attr = parseAttribute(context, attributeNames);
+            if (type === 0 /* TagType.Start */) {
+                props.push(attr);
+            }
+            advanceSpaces(context);
+        }
+        return props;
+    }
+    function parseAttribute(context, nameSet) {
+        var match = /^[^\t\r\n\f />][^\t\r\n\f />=]*/.exec(context.source);
+        var name = match[0];
+        nameSet.add(name);
+        advanceBy(context, name.length);
+        var value = undefined;
+        if (/^[^\t\r\n\f ]*=/.test(context.source)) {
+            advanceSpaces(context);
+            advanceBy(context, 1);
+            advanceSpaces(context);
+            value = parseAttributeValue(context);
+        }
+        // v-指令
+        if (/^(v-[A-Za-z0-9-]|:|\.|@|#)/.test(name)) {
+            var match_1 = /(?:^v-([a-z0-9-]+))?(?:(?::|^\.|^@|^#)(\[[^\]]+\]|[^\.]+))?(.+)?$/i.exec(name);
+            var dirName = match_1[1];
+            return {
+                type: 7 /* NodeTypes.DIRECTIVE */,
+                name: dirName,
+                exp: value && {
+                    type: 4 /* NodeTypes.SIMPLE_EXPRESSION */,
+                    content: value.content,
+                    isStatic: false,
+                    loc: {},
+                },
+                art: undefined,
+                modifiers: undefined,
+                loc: {},
+            };
+        }
+        return {
+            type: 6 /* NodeTypes.ATTRIBUTE */,
+            name: name,
+            value: value && {
+                type: 2 /* NodeTypes.TEXT */,
+                content: value.content,
+                loc: {},
+            },
+            loc: {},
+        };
+    }
+    function parseAttributeValue(context) {
+        var content = "";
+        var quote = context.source[0];
+        // 右移引号宽度
+        advanceBy(context, 1);
+        var endIndex = context.source.indexOf(quote);
+        if (endIndex === -1) {
+            content = parseTextData(context, context.source.length);
+        }
+        else {
+            content = parseTextData(context, endIndex);
+            advanceBy(context, 1);
+        }
+        return { content: content, isQuoted: true, loc: {} };
     }
     function parseText(context) {
         // 如果遇到下方的，表示普通文本的结束
@@ -1226,6 +1302,9 @@ var Vue = (function (exports) {
         var tag = match[1];
         // 右移图标
         advanceBy(context, match[0].length);
+        // 属性和指令的处理
+        advanceSpaces(context);
+        var props = parseAttributes(context, type);
         // 判断是否为自闭合标签
         var isSelfClosing = startsWith(context.source, "/>");
         advanceBy(context, isSelfClosing ? 2 : 1);
@@ -1233,7 +1312,7 @@ var Vue = (function (exports) {
             type: 1 /* NodeTypes.ELEMENT */,
             tag: tag,
             tagType: 0 /* ElementTypes.ELEMENT */,
-            props: [],
+            props: props,
             children: [],
         };
     }
