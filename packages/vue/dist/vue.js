@@ -452,7 +452,6 @@ var Vue = (function (exports) {
     }
     function normalizeChildren(vnode, children) {
         var type = 0;
-        vnode.shapeFlag;
         if (children == null) {
             children = null;
         }

@@ -67,8 +67,6 @@ function createBaseVNode(type, props, children, shapeFlag) {
 export function normalizeChildren(vnode: VNode, children: unknown) {
   let type = 0;
 
-  const { shapeFlag } = vnode;
-
   if (children == null) {
     children = null;
   } else if (isArray(children)) {
