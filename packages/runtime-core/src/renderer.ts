@@ -256,9 +256,15 @@ function baseCreateRenderer(options: RendererOptions): any {
     }
 
     // 场景3：新节点多于旧节点
+    // i移动到了最后一个位置，如果两条都通过，说明旧节点数量少于新节点
     if (i > oldChildrenEnd) {
       if (i <= newChildrenEnd) {
         const nextPos = newChildrenEnd + 1;
+        /**
+         * 下一个插入的位置
+         * 1. 插入在后，则新节点的末尾下标+1 >= 新节点数量，插入位置应该是父节点anchor（最后一个）
+         * 2. 插入在前，因为场景2，新节点末尾下标挪到0了，所以新节点末尾下标+1 < 新节点数量，插入的位置就应该是新节点末尾下标+1这个地方之前
+         */
         const anchor =
           nextPos < newChildrenLength ? newChildren[nextPos].el : parentAnchor;
         while (i <= newChildrenEnd) {
@@ -278,6 +284,7 @@ function baseCreateRenderer(options: RendererOptions): any {
     else {
       const oldStartIndex = i;
       const newStartIndex = i;
+      // 第一部分：创建新节点的key->index的map映射
       const keyToNewIndexMap = new Map();
       for (i = newStartIndex; i <= newChildrenEnd; i++) {
         const nextChild = normalizeVNode(newChildren[i]);
@@ -286,28 +293,41 @@ function baseCreateRenderer(options: RendererOptions): any {
         }
       }
 
+      // 第二部分：循环旧节点，完成打补丁/删除（不移动）
       let j;
-      let patched = 0;
-      const toBePatched = newChildrenEnd - newStartIndex + 1;
-      let moved = false;
-      let maxNewIndexSoFar = 0;
+      let patched = 0; // 已经打补丁的数量（针对新节点）
+      const toBePatched = newChildrenEnd - newStartIndex + 1; // 需要打补丁的数量（针对新节点）
+      let moved = false; // 标记当前节点是否需要移动
+      let maxNewIndexSoFar = 0; // 配合moved使用，保存当前最大新节点的index
+      // 新节点下标到旧节点下标的map，并给这个map每一项都赋值0
+      // 这个数组的下标是新节点的下标，每个下标的值是旧节点的对应key的元素的index+1
+      // 例如新节点0对应的旧节点是在1，则记录为[2]
       const newIndexToOldIndexMap = new Array(toBePatched);
       for (i = 0; i < toBePatched; i++) newIndexToOldIndexMap[i] = 0;
+      // 循环旧节点
       for (i = oldStartIndex; i <= oldChildrenEnd; i++) {
         const prevChild = oldChildren[i];
+        // 如果已经打补丁的数量超过了需要打补丁的数量，开始卸载
         if (patched >= toBePatched) {
           unmount(prevChild);
           continue;
         }
+        // 新节点要存放的位置
         let newIndex;
         if (prevChild.key != null) {
+          // 从之前新节点key->index的map中拿到新节点位置
           newIndex = keyToNewIndexMap.get(prevChild.key);
         }
+        // 这里源码里面有个else，是处理那些没有key的节点的
 
+        // 没找到新节点索引，说明旧节点应该删除了
         if (newIndex === undefined) {
           unmount(prevChild);
-        } else {
+        }
+        // 找到新节点索引，应该打补丁（先打补丁）
+        else {
           newIndexToOldIndexMap[newIndex - newStartIndex] = i + 1;
+          // 新节点index和当前最大新节点index比较，如果不比它大，则应该触发移动
           if (newIndex >= maxNewIndexSoFar) {
             maxNewIndexSoFar = newIndex;
           } else {
@@ -318,20 +338,29 @@ function baseCreateRenderer(options: RendererOptions): any {
         }
       }
 
+      // 第三部分：移动和挂载
+      // 拿到newIndex到oldIndex这个映射数组的最长递增子序列
       const increasingNewIndexSequence = moved
         ? getSequence(newIndexToOldIndexMap)
         : [];
       j = increasingNewIndexSequence.length - 1;
+      // 循环倒序，把需要patch的节点做一遍处理
       for (i = toBePatched - 1; i >= 0; i--) {
+        // 拿到新节点
         const nextIndex = newStartIndex + i;
         const nextChild = newChildren[nextIndex];
+        // 类似场景四，做插入处理
         const anchor =
           nextIndex + 1 < newChildrenLength
             ? newChildren[nextIndex + 1].el
             : parentAnchor;
+        // 新节点没有找到旧节点，插入
         if (newIndexToOldIndexMap[i] === 0) {
           patch(null, nextChild, container, anchor);
-        } else if (moved) {
+        }
+        // 如果需要移动，根据最长递增子序列做处理
+        else if (moved) {
+          // 如果不存在最长递增子序列/当前index不是最长递增子序列的最后一个元素，做移动
           if (j < 0 || i !== increasingNewIndexSequence[j]) {
             move(nextChild, container, anchor);
           } else {
@@ -425,31 +454,49 @@ function baseCreateRenderer(options: RendererOptions): any {
   };
 }
 
+/**
+ * 1.先拿到当前元素
+ * 2.看当前元素是否比之前结果的最后一个大
+ * 2.1 是，存储
+ * 2.2 不是，用当前的替换刚才的（用二分查找实现）
+ */
 // 获取最长递增子序列的下标
 function getSequence(arr: number[]): number[] {
+  // 生成arr的浅拷贝
   const p = arr.slice();
-  const result = [0];
+  // 最长递增子序列下标
+  const result = [0]; // 暂时把第一项存入最后结果
   let i, j, u, v, c;
-  const len = arr.length;
-  for (i = 0; i < len; i++) {
+  for (i = 0; i < arr.length; i++) {
+    // 拿到每一个元素
     const arrI = arr[i];
+    // 这里不为零是因为会不停改变数组的值，0表示的是下标，不具备比较的意义
     if (arrI !== 0) {
+      // j是目前拿到的最长递增子序列最后一项的值（即原数组中下标）
       j = result[result.length - 1];
+      // 如果result中最后一项比当前元素值小，则应该把当前值存起来
       if (arr[j] < arrI) {
+        // result变化前，记录result更新前最后一个索引的值是多少
         p[i] = j;
         result.push(i);
         continue;
       }
+      // 针对result开始二分查找，目的是找到需要变更的result的下标
       u = 0;
       v = result.length - 1;
       while (u < v) {
+        // 平分，向下取整，拿到对比位置的中间位置（例如0和1拿到0）
         c = (u + v) >> 1;
+        // 看当前中间位的arr值是否小于当前值，是的话，向右侧继续去比对
         if (arr[result[c]] < arrI) {
           u = c + 1;
-        } else {
+        }
+        // 如果不是，右侧缩窄到中间位置，再去做二分（说明右侧数字都比arrI大）
+        else {
           v = c;
         }
       }
+      // 在result中，用更大值的下标，替换原来较小值的下标
       if (arrI < arr[result[u]]) {
         if (u > 0) {
           p[i] = result[u - 1];
@@ -458,6 +505,7 @@ function getSequence(arr: number[]): number[] {
       }
     }
   }
+  // 回溯
   u = result.length;
   v = result[u - 1];
   while (u-- > 0) {
