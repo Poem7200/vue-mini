@@ -787,9 +787,15 @@ var Vue = (function (exports) {
                 newChildrenEnd--;
             }
             // 场景3：新节点多于旧节点
+            // i移动到了最后一个位置，如果两条都通过，说明旧节点数量少于新节点
             if (i > oldChildrenEnd) {
                 if (i <= newChildrenEnd) {
                     var nextPos = newChildrenEnd + 1;
+                    /**
+                     * 下一个插入的位置
+                     * 1. 插入在后，则新节点的末尾下标+1 >= 新节点数量，插入位置应该是父节点anchor（最后一个）
+                     * 2. 插入在前，因为场景2，新节点末尾下标挪到0了，所以新节点末尾下标+1 < 新节点数量，插入的位置就应该是新节点末尾下标+1这个地方之前
+                     */
                     var anchor = nextPos < newChildrenLength ? newChildren[nextPos].el : parentAnchor;
                     while (i <= newChildrenEnd) {
                         patch(null, normalizeVNode(newChildren[i]), container, anchor);
@@ -808,6 +814,7 @@ var Vue = (function (exports) {
             else {
                 var oldStartIndex = i;
                 var newStartIndex = i;
+                // 第一部分：创建新节点的key->index的map映射
                 var keyToNewIndexMap = new Map();
                 for (i = newStartIndex; i <= newChildrenEnd; i++) {
                     var nextChild = normalizeVNode(newChildren[i]);
@@ -815,29 +822,41 @@ var Vue = (function (exports) {
                         keyToNewIndexMap.set(nextChild.key, i);
                     }
                 }
+                // 第二部分：循环旧节点，完成打补丁/删除（不移动）
                 var j = void 0;
-                var patched = 0;
-                var toBePatched = newChildrenEnd - newStartIndex + 1;
-                var moved = false;
-                var maxNewIndexSoFar = 0;
+                var patched = 0; // 已经打补丁的数量（针对新节点）
+                var toBePatched = newChildrenEnd - newStartIndex + 1; // 需要打补丁的数量（针对新节点）
+                var moved = false; // 标记当前节点是否需要移动
+                var maxNewIndexSoFar = 0; // 配合moved使用，保存当前最大新节点的index
+                // 新节点下标到旧节点下标的map，并给这个map每一项都赋值0
+                // 这个数组的下标是新节点的下标，每个下标的值是旧节点的对应key的元素的index+1
+                // 例如新节点0对应的旧节点是在1，则记录为[2]
                 var newIndexToOldIndexMap = new Array(toBePatched);
                 for (i = 0; i < toBePatched; i++)
                     newIndexToOldIndexMap[i] = 0;
+                // 循环旧节点
                 for (i = oldStartIndex; i <= oldChildrenEnd; i++) {
                     var prevChild = oldChildren[i];
+                    // 如果已经打补丁的数量超过了需要打补丁的数量，开始卸载
                     if (patched >= toBePatched) {
                         unmount(prevChild);
                         continue;
                     }
+                    // 新节点要存放的位置
                     var newIndex = void 0;
                     if (prevChild.key != null) {
+                        // 从之前新节点key->index的map中拿到新节点位置
                         newIndex = keyToNewIndexMap.get(prevChild.key);
                     }
+                    // 这里源码里面有个else，是处理那些没有key的节点的
+                    // 没找到新节点索引，说明旧节点应该删除了
                     if (newIndex === undefined) {
                         unmount(prevChild);
                     }
+                    // 找到新节点索引，应该打补丁（先打补丁）
                     else {
                         newIndexToOldIndexMap[newIndex - newStartIndex] = i + 1;
+                        // 新节点index和当前最大新节点index比较，如果不比它大，则应该触发移动
                         if (newIndex >= maxNewIndexSoFar) {
                             maxNewIndexSoFar = newIndex;
                         }
@@ -848,20 +867,28 @@ var Vue = (function (exports) {
                         patched++;
                     }
                 }
+                // 第三部分：移动和挂载
+                // 拿到newIndex到oldIndex这个映射数组的最长递增子序列
                 var increasingNewIndexSequence = moved
                     ? getSequence(newIndexToOldIndexMap)
                     : [];
                 j = increasingNewIndexSequence.length - 1;
+                // 循环倒序，把需要patch的节点做一遍处理
                 for (i = toBePatched - 1; i >= 0; i--) {
+                    // 拿到新节点
                     var nextIndex = newStartIndex + i;
                     var nextChild = newChildren[nextIndex];
+                    // 类似场景四，做插入处理
                     var anchor = nextIndex + 1 < newChildrenLength
                         ? newChildren[nextIndex + 1].el
                         : parentAnchor;
+                    // 新节点没有找到旧节点，插入
                     if (newIndexToOldIndexMap[i] === 0) {
                         patch(null, nextChild, container, anchor);
                     }
+                    // 如果需要移动，根据最长递增子序列做处理
                     else if (moved) {
+                        // 如果不存在最长递增子序列/当前index不是最长递增子序列的最后一个元素，做移动
                         if (j < 0 || i !== increasingNewIndexSequence[j]) {
                             move(nextChild, container, anchor);
                         }
@@ -947,32 +974,49 @@ var Vue = (function (exports) {
             render: render,
         };
     }
+    /**
+     * 1.先拿到当前元素
+     * 2.看当前元素是否比之前结果的最后一个大
+     * 2.1 是，存储
+     * 2.2 不是，用当前的替换刚才的（用二分查找实现）
+     */
     // 获取最长递增子序列的下标
     function getSequence(arr) {
+        // 生成arr的浅拷贝
         var p = arr.slice();
-        var result = [0];
+        // 最长递增子序列下标
+        var result = [0]; // 暂时把第一项存入最后结果
         var i, j, u, v, c;
-        var len = arr.length;
-        for (i = 0; i < len; i++) {
+        for (i = 0; i < arr.length; i++) {
+            // 拿到每一个元素
             var arrI = arr[i];
+            // 这里不为零是因为会不停改变数组的值，0表示的是下标，不具备比较的意义
             if (arrI !== 0) {
+                // j是目前拿到的最长递增子序列最后一项的值（即原数组中下标）
                 j = result[result.length - 1];
+                // 如果result中最后一项比当前元素值小，则应该把当前值存起来
                 if (arr[j] < arrI) {
+                    // result变化前，记录result更新前最后一个索引的值是多少
                     p[i] = j;
                     result.push(i);
                     continue;
                 }
+                // 针对result开始二分查找，目的是找到需要变更的result的下标
                 u = 0;
                 v = result.length - 1;
                 while (u < v) {
+                    // 平分，向下取整，拿到对比位置的中间位置（例如0和1拿到0）
                     c = (u + v) >> 1;
+                    // 看当前中间位的arr值是否小于当前值，是的话，向右侧继续去比对
                     if (arr[result[c]] < arrI) {
                         u = c + 1;
                     }
+                    // 如果不是，右侧缩窄到中间位置，再去做二分（说明右侧数字都比arrI大）
                     else {
                         v = c;
                     }
                 }
+                // 在result中，用更大值的下标，替换原来较小值的下标
                 if (arrI < arr[result[u]]) {
                     if (u > 0) {
                         p[i] = result[u - 1];
@@ -981,6 +1025,7 @@ var Vue = (function (exports) {
                 }
             }
         }
+        // 回溯
         u = result.length;
         v = result[u - 1];
         while (u-- > 0) {
@@ -1156,16 +1201,21 @@ var Vue = (function (exports) {
             var s = context.source;
             var node = void 0;
             if (startsWith(s, "{{")) {
+                // 模板语法
                 node = parseInterpolation(context);
             }
             else if (s[0] === "<") {
+                // 可能是标签的开始
                 if (/[a-z]/i.test(s[1])) {
+                    // 确定是标签的开始
                     node = parseElement(context, ancestors);
                 }
             }
+            // 如果检测出来不是node节点，说明是文本，要做文本的处理
             if (!node) {
                 node = parseText(context);
             }
+            // 把当前处理好的节点push
             pushNode(nodes, node);
         }
         return nodes;
@@ -1188,12 +1238,15 @@ var Vue = (function (exports) {
         };
     }
     function parseElement(context, ancestors) {
+        // 解析标签的tag
         var element = parseTag(context, 0 /* TagType.Start */);
         // 处理子标签
         ancestors.push(element);
         var children = parseChildren(context, ancestors);
+        // 因为ancestors仅限于isEnd判断逻辑，所以结束以后要pop出来
         ancestors.pop();
         element.children = children;
+        // 结束标签
         if (startsWithEndTagOpen(context.source, element.tag)) {
             parseTag(context, 1 /* TagType.End */);
         }
@@ -1278,7 +1331,9 @@ var Vue = (function (exports) {
     function parseText(context) {
         // 如果遇到下方的，表示普通文本的结束
         var endTokens = ["<", "{{"];
+        // 临时用context的结尾当text的结尾，后面修正正确的结尾位置
         var endIndex = context.source.length;
+        // 自后向前比对，找到正确的text结尾位置
         for (var i = 0; i < endTokens.length; i++) {
             var index = context.source.indexOf(endTokens[i], 1);
             if (index !== -1 && endIndex > index) {
@@ -1291,26 +1346,30 @@ var Vue = (function (exports) {
             content: content,
         };
     }
+    // 拿到文本数据，并把源代码光标右移
     function parseTextData(context, length) {
         var rawText = context.source.slice(0, length);
         advanceBy(context, length);
         return rawText;
     }
     function parseTag(context, type) {
+        // type用来看后续位移长度
         var match = /^<\/?([a-z][^\r\n\t\f />]*)/i.exec(context.source);
         var tag = match[1];
-        // 右移图标
+        // 根据tag的名称长度，右移source位置（<+tag名字）
         advanceBy(context, match[0].length);
         // 属性和指令的处理
         advanceSpaces(context);
         var props = parseAttributes(context, type);
-        // 判断是否为自闭合标签
+        // 判断是否为自闭合标签：是的话右移2，否则右移1
         var isSelfClosing = startsWith(context.source, "/>");
         advanceBy(context, isSelfClosing ? 2 : 1);
         return {
+            // 标记当前是element节点
             type: 1 /* NodeTypes.ELEMENT */,
             tag: tag,
             tagType: 0 /* ElementTypes.ELEMENT */,
+            // 一开始是props: []
             props: props,
             children: [],
         };
@@ -1330,9 +1389,17 @@ var Vue = (function (exports) {
         }
         return !s;
     }
-    // 判断是否为结束标签的开始
+    // 判断是否为结束标签的开始（例如</div，这一段完整的才是结束标签的开始）
     function startsWithEndTagOpen(source, tag) {
-        return startsWith(source, "</");
+        /**
+         * 三个条件
+         * 1.以</开头
+         * 2.从2-tag结束为止截出来的内容，和给的tag一样（确定了同名tag）
+         * 3.后面要紧跟有效的结束内容，而不是继续有其他一些文字
+         */
+        return (startsWith(source, "</") &&
+            source.slice(2, 2 + tag.length).toLowerCase() === tag.toLowerCase() &&
+            /[\t\r\n\f />]/.test(source[2 + tag.length] || ">"));
     }
     function startsWith(source, searchString) {
         return source.startsWith(searchString);
@@ -1357,6 +1424,7 @@ var Vue = (function (exports) {
         _a[TO_DISPLAY_STRING] = "toDisplayString",
         _a);
 
+    // 创建一个全局通用的上下文对象
     function createTransformContext(root, _a) {
         var _b = _a.nodeTransforms, nodeTransforms = _b === void 0 ? [] : _b;
         var context = {
@@ -1397,6 +1465,7 @@ var Vue = (function (exports) {
             }
         }
         switch (node.type) {
+            // 处理子节点
             case 1 /* NodeTypes.ELEMENT */:
             case 0 /* NodeTypes.ROOT */:
                 traverseChildren(node, context);
@@ -1405,6 +1474,7 @@ var Vue = (function (exports) {
                 context.helper(TO_DISPLAY_STRING);
                 break;
         }
+        // 退出阶段，倒序出
         context.currentNode = node;
         var i = exitFns.length;
         while (i--) {
@@ -1667,7 +1737,7 @@ var Vue = (function (exports) {
         transform(ast, extend(options, {
             nodeTransforms: [transformElement, transformText],
         }));
-        console.log(ast);
+        console.log(JSON.stringify(ast));
         return generate(ast);
     }
 

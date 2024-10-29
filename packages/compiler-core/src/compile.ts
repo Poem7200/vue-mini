@@ -15,7 +15,7 @@ export function baseCompile(template: string, options = {}) {
     })
   );
 
-  console.log(ast);
+  console.log(JSON.stringify(ast));
 
   return generate(ast);
 }

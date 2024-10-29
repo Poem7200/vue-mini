@@ -55,6 +55,7 @@ export const enum ElementTypes {
 
 export function createVNodeCall(context, tag, props?, children?) {
   if (context) {
+    // 最后触发的render函数中调用方法的名字
     context.helper(CREATE_ELEMENT_VNODE);
   }
 

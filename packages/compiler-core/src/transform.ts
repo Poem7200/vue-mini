@@ -12,6 +12,7 @@ export interface TransformContext {
   nodeTransforms: any[];
 }
 
+// 创建一个全局通用的上下文对象
 export function createTransformContext(root, { nodeTransforms = [] }) {
   const context: TransformContext = {
     nodeTransforms,
@@ -61,6 +62,7 @@ export function traverseNode(node, context: TransformContext) {
   }
 
   switch (node.type) {
+    // 处理子节点
     case NodeTypes.ELEMENT:
     case NodeTypes.ROOT:
       traverseChildren(node, context);
@@ -70,6 +72,7 @@ export function traverseNode(node, context: TransformContext) {
       break;
   }
 
+  // 退出阶段，倒序出
   context.currentNode = node;
   let i = exitFns.length;
   while (i--) {
@@ -88,7 +91,7 @@ export function traverseChildren(parent, context: TransformContext) {
 function createRootCodegen(root) {
   const { children } = root;
 
-  // Vue2只支持单个根节点，Vue3支持多个
+  // Vue2只支持单个根节点，Vue3支持多个，这里只写了处理单个的
   if (children.length === 1) {
     const child = children[0];
     if (isSingleElementRoot(root, child) && child.codegenNode) {
