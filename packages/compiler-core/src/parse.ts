@@ -40,17 +40,22 @@ function parseChildren(context: ParserContext, ancestors) {
     let node;
 
     if (startsWith(s, "{{")) {
+      // 模板语法
       node = parseInterpolation(context);
     } else if (s[0] === "<") {
+      // 可能是标签的开始
       if (/[a-z]/i.test(s[1])) {
+        // 确定是标签的开始
         node = parseElement(context, ancestors);
       }
     }
 
+    // 如果检测出来不是node节点，说明是文本，要做文本的处理
     if (!node) {
       node = parseText(context);
     }
 
+    // 把当前处理好的节点push
     pushNode(nodes, node);
   }
 
@@ -80,15 +85,18 @@ function parseInterpolation(context: ParserContext) {
 }
 
 function parseElement(context: ParserContext, ancestors) {
+  // 解析标签的tag
   const element = parseTag(context, TagType.Start);
 
   // 处理子标签
   ancestors.push(element);
   const children = parseChildren(context, ancestors);
+  // 因为ancestors仅限于isEnd判断逻辑，所以结束以后要pop出来
   ancestors.pop();
 
   element.children = children;
 
+  // 结束标签
   if (startsWithEndTagOpen(context.source, element.tag)) {
     parseTag(context, TagType.End);
   }
@@ -197,8 +205,10 @@ function parseText(context: ParserContext) {
   // 如果遇到下方的，表示普通文本的结束
   const endTokens = ["<", "{{"];
 
+  // 临时用context的结尾当text的结尾，后面修正正确的结尾位置
   let endIndex = context.source.length;
 
+  // 自后向前比对，找到正确的text结尾位置
   for (let i = 0; i < endTokens.length; i++) {
     const index = context.source.indexOf(endTokens[i], 1);
 
@@ -215,6 +225,7 @@ function parseText(context: ParserContext) {
   };
 }
 
+// 拿到文本数据，并把源代码光标右移
 function parseTextData(context: ParserContext, length: number) {
   const rawText = context.source.slice(0, length);
 
@@ -224,24 +235,28 @@ function parseTextData(context: ParserContext, length: number) {
 }
 
 function parseTag(context: ParserContext, type: TagType) {
+  // type用来看后续位移长度
+
   const match: any = /^<\/?([a-z][^\r\n\t\f />]*)/i.exec(context.source);
   const tag = match[1];
 
-  // 右移图标
+  // 根据tag的名称长度，右移source位置（<+tag名字）
   advanceBy(context, match[0].length);
 
   // 属性和指令的处理
   advanceSpaces(context);
   let props = parseAttributes(context, type);
 
-  // 判断是否为自闭合标签
+  // 判断是否为自闭合标签：是的话右移2，否则右移1
   let isSelfClosing = startsWith(context.source, "/>");
   advanceBy(context, isSelfClosing ? 2 : 1);
 
   return {
+    // 标记当前是element节点
     type: NodeTypes.ELEMENT,
     tag,
     tagType: ElementTypes.ELEMENT,
+    // 一开始是props: []
     props,
     children: [],
   };
@@ -266,9 +281,19 @@ function isEnd(context: ParserContext, ancestors) {
   return !s;
 }
 
-// 判断是否为结束标签的开始
+// 判断是否为结束标签的开始（例如</div，这一段完整的才是结束标签的开始）
 function startsWithEndTagOpen(source: string, tag: string): boolean {
-  return startsWith(source, "</");
+  /**
+   * 三个条件
+   * 1.以</开头
+   * 2.从2-tag结束为止截出来的内容，和给的tag一样（确定了同名tag）
+   * 3.后面要紧跟有效的结束内容，而不是继续有其他一些文字
+   */
+  return (
+    startsWith(source, "</") &&
+    source.slice(2, 2 + tag.length).toLowerCase() === tag.toLowerCase() &&
+    /[\t\r\n\f />]/.test(source[2 + tag.length] || ">")
+  );
 }
 
 function startsWith(source: string, searchString: string): boolean {
