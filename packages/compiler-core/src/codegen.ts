@@ -7,7 +7,9 @@ const aliasHelper = (s: symbol) => `${helperNameMap[s]}: _${helperNameMap[s]}`;
 
 function createCodegenContext(ast) {
   const context = {
+    // render函数代码字符串
     code: "",
+    // 运行时全局变量名
     runtimeGlobalName: "Vue",
     source: ast.loc.source,
     indentLevel: 0,
@@ -96,12 +98,15 @@ function genNode(node, context) {
     case NodeTypes.TEXT:
       genText(node, context);
       break;
+    // 简单表达式
     case NodeTypes.SIMPLE_EXPRESSION:
       genExpression(node, context);
       break;
+    // 插值表达式
     case NodeTypes.INTERPOLATION:
       genInterpolation(node, context);
       break;
+    // 复合表达式（即简单+插值）
     case NodeTypes.COMPOUND_EXPRESSION:
       genCompoundExpression(node, context);
       break;
@@ -114,9 +119,12 @@ function genNode(node, context) {
 function genCompoundExpression(node, context) {
   for (let i = 0; i < node.children.length; i++) {
     const child = node.children[i];
+    // +，直接推入
     if (isString(child)) {
       context.push(child);
-    } else {
+    }
+    // 文本/插值表达式的处理在genNode中，需要递归
+    else {
       genNode(child, context);
     }
   }
