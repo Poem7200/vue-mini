@@ -110,6 +110,7 @@ function genNode(node, context) {
     case NodeTypes.COMPOUND_EXPRESSION:
       genCompoundExpression(node, context);
       break;
+    // 多层级节点
     case NodeTypes.ELEMENT:
       genNode(node.codegenNode, context);
       break;
