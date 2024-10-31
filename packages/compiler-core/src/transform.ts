@@ -1,3 +1,4 @@
+import { isArray, isString } from "@vue/shared";
 import { NodeTypes } from "./ast";
 import { isSingleElementRoot } from "./hoistStatic";
 import { TO_DISPLAY_STRING } from "./runtimeHelpers";
@@ -10,6 +11,7 @@ export interface TransformContext {
   helpers: Map<symbol, number>;
   helper<T extends symbol>(name: T): T;
   nodeTransforms: any[];
+  replaceNode(node): void;
 }
 
 // 创建一个全局通用的上下文对象
@@ -25,6 +27,9 @@ export function createTransformContext(root, { nodeTransforms = [] }) {
       const count = context.helpers.get(name) || 0;
       context.helpers.set(name, count + 1);
       return name;
+    },
+    replaceNode(node) {
+      context.parent!.children[context.childIndex] = context.currentNode = node;
     },
   };
 
@@ -57,18 +62,34 @@ export function traverseNode(node, context: TransformContext) {
     const onExit = nodeTransforms[i](node, context);
 
     if (onExit) {
-      exitFns.push(onExit);
+      if (isArray(onExit)) {
+        exitFns.push(...onExit);
+      } else {
+        exitFns.push(onExit);
+      }
+    }
+
+    if (!context.currentNode) {
+      return;
+    } else {
+      node = context.currentNode;
     }
   }
 
   switch (node.type) {
     // 处理子节点
+    case NodeTypes.IF_BRANCH:
     case NodeTypes.ELEMENT:
     case NodeTypes.ROOT:
       traverseChildren(node, context);
       break;
     case NodeTypes.INTERPOLATION:
       context.helper(TO_DISPLAY_STRING);
+      break;
+    case NodeTypes.IF:
+      for (let i = 0; i < node.branches.length; i++) {
+        traverseNode(node.branches[i], context);
+      }
       break;
   }
 
@@ -98,4 +119,35 @@ function createRootCodegen(root) {
       root.codegenNode = child.codegenNode;
     }
   }
+}
+
+// 针对指令的处理
+// name是指令名字
+// fn是指令的具体处理方法，通常是闭包函数
+// 返回闭包函数，就是指令对应的处理函数
+export function createStructuralDirectiveTransform(name: string | RegExp, fn) {
+  const matches = isString(name)
+    ? (n: string) => n === name
+    : (n: string) => name.test(n);
+
+  return (node, context) => {
+    if (node.type === NodeTypes.ELEMENT) {
+      const { props } = node;
+      const exitFns: any = [];
+
+      for (let i = 0; i < props.length; i++) {
+        const prop = props[i];
+
+        if (prop.type === NodeTypes.DIRECTIVE && matches(prop.name)) {
+          props.splice(i, 1);
+          i--;
+
+          const onExit = fn(node, prop, context);
+          if (onExit) exitFns.push(onExit);
+        }
+      }
+
+      return exitFns;
+    }
+  };
 }

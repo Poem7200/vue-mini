@@ -1260,37 +1260,47 @@ var Vue = (function (exports) {
     }
     function parseAttributes(context, type) {
         var props = [];
+        // 属性名的存放
         var attributeNames = new Set();
+        // 当源码长度不为0，且剩下的内容不是标签结束的时候，说明还有属性，要循环处理
         while (context.source.length > 0 &&
             !startsWith(context.source, ">") &&
             !startsWith(context.source, "/>")) {
             var attr = parseAttribute(context, attributeNames);
+            // 只有是开始标签，才去存放属性
             if (type === 0 /* TagType.Start */) {
                 props.push(attr);
             }
+            // 两个属性之间有空格，要右移到下一个属性/结尾位置
             advanceSpaces(context);
         }
         return props;
     }
     function parseAttribute(context, nameSet) {
+        // 拿到属性名
         var match = /^[^\t\r\n\f />][^\t\r\n\f />=]*/.exec(context.source);
         var name = match[0];
         nameSet.add(name);
+        // 右移继续准备拿到属性值
         advanceBy(context, name.length);
         var value = undefined;
+        // 如果能有=出现，后面就是属性值了
         if (/^[^\t\r\n\f ]*=/.test(context.source)) {
             advanceSpaces(context);
             advanceBy(context, 1);
             advanceSpaces(context);
+            // 获取属性值
             value = parseAttributeValue(context);
         }
-        // v-指令
+        // v-指令处理
         if (/^(v-[A-Za-z0-9-]|:|\.|@|#)/.test(name)) {
+            // 拿到v-指令的名字（例如if/for等等）
             var match_1 = /(?:^v-([a-z0-9-]+))?(?:(?::|^\.|^@|^#)(\[[^\]]+\]|[^\.]+))?(.+)?$/i.exec(name);
             var dirName = match_1[1];
             return {
                 type: 7 /* NodeTypes.DIRECTIVE */,
                 name: dirName,
+                // 指令绑定的值
                 exp: value && {
                     type: 4 /* NodeTypes.SIMPLE_EXPRESSION */,
                     content: value.content,
@@ -1302,6 +1312,7 @@ var Vue = (function (exports) {
                 loc: {},
             };
         }
+        // 普通属性处理
         return {
             type: 6 /* NodeTypes.ATTRIBUTE */,
             name: name,
@@ -1313,17 +1324,22 @@ var Vue = (function (exports) {
             loc: {},
         };
     }
+    // 单个属性值的处理
     function parseAttributeValue(context) {
+        // 属性内容
         var content = "";
+        // 第一位是引号（单双不确定，所以要拿到它，后面对应去匹配）
         var quote = context.source[0];
         // 右移引号宽度
         advanceBy(context, 1);
         var endIndex = context.source.indexOf(quote);
+        // 没有找到结束引号，则后面内容都是属性值
         if (endIndex === -1) {
             content = parseTextData(context, context.source.length);
         }
         else {
             content = parseTextData(context, endIndex);
+            // 右移引号宽度
             advanceBy(context, 1);
         }
         return { content: content, isQuoted: true, loc: {} };
@@ -1418,10 +1434,12 @@ var Vue = (function (exports) {
     var CREATE_ELEMENT_VNODE = Symbol("createElementVNode");
     var CREATE_VNODE = Symbol("createVNode");
     var TO_DISPLAY_STRING = Symbol("toDisplayString");
+    var CREATE_COMMENT = Symbol("createCommentVNode");
     var helperNameMap = (_a = {},
         _a[CREATE_ELEMENT_VNODE] = "createElementVNode",
         _a[CREATE_VNODE] = "createVNode",
         _a[TO_DISPLAY_STRING] = "toDisplayString",
+        _a[CREATE_COMMENT] = "createCommentVNode",
         _a);
 
     // 创建一个全局通用的上下文对象
@@ -1438,6 +1456,9 @@ var Vue = (function (exports) {
                 var count = context.helpers.get(name) || 0;
                 context.helpers.set(name, count + 1);
                 return name;
+            },
+            replaceNode: function (node) {
+                context.parent.children[context.childIndex] = context.currentNode = node;
             },
         };
         return context;
@@ -1461,17 +1482,34 @@ var Vue = (function (exports) {
         for (var i_1 = 0; i_1 < nodeTransforms.length; i_1++) {
             var onExit = nodeTransforms[i_1](node, context);
             if (onExit) {
-                exitFns.push(onExit);
+                if (isArray(onExit)) {
+                    exitFns.push.apply(exitFns, __spreadArray([], __read(onExit), false));
+                }
+                else {
+                    exitFns.push(onExit);
+                }
+            }
+            if (!context.currentNode) {
+                return;
+            }
+            else {
+                node = context.currentNode;
             }
         }
         switch (node.type) {
             // 处理子节点
+            case 10 /* NodeTypes.IF_BRANCH */:
             case 1 /* NodeTypes.ELEMENT */:
             case 0 /* NodeTypes.ROOT */:
                 traverseChildren(node, context);
                 break;
             case 5 /* NodeTypes.INTERPOLATION */:
                 context.helper(TO_DISPLAY_STRING);
+                break;
+            case 9 /* NodeTypes.IF */:
+                for (var i_2 = 0; i_2 < node.branches.length; i_2++) {
+                    traverseNode(node.branches[i_2], context);
+                }
                 break;
         }
         // 退出阶段，倒序出
@@ -1490,7 +1528,7 @@ var Vue = (function (exports) {
     }
     function createRootCodegen(root) {
         var children = root.children;
-        // Vue2只支持单个根节点，Vue3支持多个
+        // Vue2只支持单个根节点，Vue3支持多个，这里只写了处理单个的
         if (children.length === 1) {
             var child = children[0];
             if (isSingleElementRoot(root, child) && child.codegenNode) {
@@ -1498,32 +1536,32 @@ var Vue = (function (exports) {
             }
         }
     }
-
-    function createVNodeCall(context, tag, props, children) {
-        if (context) {
-            context.helper(CREATE_ELEMENT_VNODE);
-        }
-        return {
-            type: 13 /* NodeTypes.VNODE_CALL */,
-            tag: tag,
-            props: props,
-            children: children,
+    // 针对指令的处理
+    // name是指令名字
+    // fn是指令的具体处理方法，通常是闭包函数
+    // 返回闭包函数，就是指令对应的处理函数
+    function createStructuralDirectiveTransform(name, fn) {
+        var matches = isString(name)
+            ? function (n) { return n === name; }
+            : function (n) { return name.test(n); };
+        return function (node, context) {
+            if (node.type === 1 /* NodeTypes.ELEMENT */) {
+                var props = node.props;
+                var exitFns = [];
+                for (var i = 0; i < props.length; i++) {
+                    var prop = props[i];
+                    if (prop.type === 7 /* NodeTypes.DIRECTIVE */ && matches(prop.name)) {
+                        props.splice(i, 1);
+                        i--;
+                        var onExit = fn(node, prop, context);
+                        if (onExit)
+                            exitFns.push(onExit);
+                    }
+                }
+                return exitFns;
+            }
         };
     }
-
-    var transformElement = function (node, context) {
-        return function postTransformElement() {
-            node = context.currentNode;
-            if (node.type !== 1 /* NodeTypes.ELEMENT */) {
-                return;
-            }
-            var tag = node.tag;
-            var vnodeTag = "\"".concat(tag, "\"");
-            var vnodeProps = [];
-            var vnodeChildren = node.children;
-            node.codegenNode = createVNodeCall(context, vnodeTag, vnodeProps, vnodeChildren);
-        };
-    };
 
     function isText(node) {
         return [5 /* NodeTypes.INTERPOLATION */, 2 /* NodeTypes.TEXT */].includes(node.type);
@@ -1531,53 +1569,16 @@ var Vue = (function (exports) {
     function getVNodeHelper(ssr, isComponent) {
         return ssr || isComponent ? CREATE_VNODE : CREATE_ELEMENT_VNODE;
     }
-
-    // 把相邻的文本节点和表达式合并成一个表达式
-    var transformText = function (node, context) {
-        if ([
-            0 /* NodeTypes.ROOT */,
-            1 /* NodeTypes.ELEMENT */,
-            11 /* NodeTypes.FOR */,
-            10 /* NodeTypes.IF_BRANCH */,
-        ].includes(node.type)) {
-            return function () {
-                var children = node.children;
-                var currentContainer;
-                for (var i = 0; i < children.length; i++) {
-                    var child = children[i];
-                    if (isText(child)) {
-                        for (var j = i + 1; j < children.length; j++) {
-                            var next = children[j];
-                            if (isText(next)) {
-                                if (!currentContainer) {
-                                    currentContainer = children[i] = createCompoundExpression([child], child.loc);
-                                }
-                                currentContainer.children.push(" + ", next);
-                                children.splice(j, 1);
-                                j--;
-                            }
-                            else {
-                                currentContainer = undefined;
-                                break;
-                            }
-                        }
-                    }
-                }
-            };
-        }
-    };
-    function createCompoundExpression(children, loc) {
-        return {
-            type: 8 /* NodeTypes.COMPOUND_EXPRESSION */,
-            loc: loc,
-            children: children,
-        };
+    function getMemoedVNodeCall(node) {
+        return node;
     }
 
     var aliasHelper = function (s) { return "".concat(helperNameMap[s], ": _").concat(helperNameMap[s]); };
     function createCodegenContext(ast) {
         var context = {
+            // render函数代码字符串
             code: "",
+            // 运行时全局变量名
             runtimeGlobalName: "Vue",
             source: ast.loc.source,
             indentLevel: 0,
@@ -1652,15 +1653,19 @@ var Vue = (function (exports) {
             case 2 /* NodeTypes.TEXT */:
                 genText(node, context);
                 break;
+            // 简单表达式
             case 4 /* NodeTypes.SIMPLE_EXPRESSION */:
                 genExpression(node, context);
                 break;
+            // 插值表达式
             case 5 /* NodeTypes.INTERPOLATION */:
                 genInterpolation(node, context);
                 break;
+            // 复合表达式（即简单+插值）
             case 8 /* NodeTypes.COMPOUND_EXPRESSION */:
                 genCompoundExpression(node, context);
                 break;
+            // 多层级节点
             case 1 /* NodeTypes.ELEMENT */:
                 genNode(node.codegenNode, context);
                 break;
@@ -1669,9 +1674,11 @@ var Vue = (function (exports) {
     function genCompoundExpression(node, context) {
         for (var i = 0; i < node.children.length; i++) {
             var child = node.children[i];
+            // +，直接推入
             if (isString(child)) {
                 context.push(child);
             }
+            // 文本/插值表达式的处理在genNode中，需要递归
             else {
                 genNode(child, context);
             }
@@ -1731,13 +1738,194 @@ var Vue = (function (exports) {
         context.push("]");
     }
 
+    function createVNodeCall(context, tag, props, children) {
+        if (context) {
+            // 最后触发的render函数中调用方法的名字
+            context.helper(CREATE_ELEMENT_VNODE);
+        }
+        return {
+            type: 13 /* NodeTypes.VNODE_CALL */,
+            tag: tag,
+            props: props,
+            children: children,
+        };
+    }
+    function createConditionalExpression(test, consquent, alternate, newline) {
+        if (newline === void 0) { newline = true; }
+        return {
+            type: 19 /* NodeTypes.JS_CONDITIONAL_EXPRESSION */,
+            test: test,
+            consquent: consquent,
+            alternate: alternate,
+            newline: newline,
+            loc: {},
+        };
+    }
+    // 创建一个简单的表达式节点
+    function createSimpleExpression(content, isStatic) {
+        return {
+            type: 4 /* NodeTypes.SIMPLE_EXPRESSION */,
+            loc: {},
+            content: content,
+            isStatic: isStatic,
+        };
+    }
+    function createObjectProperty(key, value) {
+        return {
+            type: 16 /* NodeTypes.JS_PROPERTY */,
+            loc: {},
+            key: isString(key) ? createSimpleExpression(key, true) : key,
+            value: value,
+        };
+    }
+    function createCallExpression(callee, args) {
+        return {
+            type: 20 /* NodeTypes.JS_CACHE_EXPRESSION */,
+            loc: {},
+            callee: callee,
+            arguments: args,
+        };
+    }
+
+    var transformElement = function (node, context) {
+        return function postTransformElement() {
+            node = context.currentNode;
+            // 只有ELEMENT节点才能执行后续逻辑
+            if (node.type !== 1 /* NodeTypes.ELEMENT */) {
+                return;
+            }
+            var tag = node.tag;
+            var vnodeTag = "\"".concat(tag, "\"");
+            var vnodeProps = [];
+            var vnodeChildren = node.children;
+            node.codegenNode = createVNodeCall(context, vnodeTag, vnodeProps, vnodeChildren);
+        };
+    };
+
+    // 把相邻的文本节点和表达式合并成一个表达式
+    // 例如 hello {{ msg }}
+    // 需要拼接成 hello + _toDisplayString(_ctx.msg)
+    var transformText = function (node, context) {
+        if ([
+            0 /* NodeTypes.ROOT */,
+            1 /* NodeTypes.ELEMENT */,
+            11 /* NodeTypes.FOR */,
+            10 /* NodeTypes.IF_BRANCH */,
+        ].includes(node.type)) {
+            return function () {
+                var children = node.children;
+                var currentContainer;
+                // 遍历所有子节点
+                for (var i = 0; i < children.length; i++) {
+                    var child = children[i];
+                    if (isText(child)) {
+                        // 从当前节点的后一个开始遍历
+                        for (var j = i + 1; j < children.length; j++) {
+                            var next = children[j];
+                            // 如果紧接着的节点也是文本节点，要把两个节点合并起来
+                            if (isText(next)) {
+                                // 还没有容器的时候，创建一个复合表达式节点
+                                if (!currentContainer) {
+                                    currentContainer = children[i] = createCompoundExpression([child], child.loc);
+                                }
+                                // 把之前的内容和当前的合并
+                                currentContainer.children.push(" + ", next);
+                                // 处理好了下一个child，把下一个child删了，光标左移
+                                children.splice(j, 1);
+                                j--;
+                            }
+                            else {
+                                // 紧接着的节点不是文本节点，不需要合并
+                                currentContainer = undefined;
+                                break;
+                            }
+                        }
+                    }
+                }
+            };
+        }
+    };
+    function createCompoundExpression(children, loc) {
+        return {
+            type: 8 /* NodeTypes.COMPOUND_EXPRESSION */,
+            loc: loc,
+            children: children,
+        };
+    }
+
+    var transformIf = createStructuralDirectiveTransform(/^(if|else|else-if)$/, function (node, dir, context) {
+        return processIf(node, dir, context, function (ifNode, branch, isRoot) {
+            var key = 0;
+            return function () {
+                if (isRoot) {
+                    ifNode.codegenNode = createCodegenNodeForBranch(branch, key, context);
+                }
+            };
+        });
+    });
+    // 真实处理if指令的部分
+    function processIf(node, dir, context, processCodegen) {
+        if (dir.name === "if") {
+            var branch = createIfBranch(node, dir);
+            var ifNode = {
+                type: 9 /* NodeTypes.IF */,
+                loc: {},
+                branches: [branch],
+            };
+            context.replaceNode(ifNode);
+            if (processCodegen) {
+                return processCodegen(ifNode, branch, true);
+            }
+        }
+    }
+    function createIfBranch(node, dir) {
+        return {
+            type: 10 /* NodeTypes.IF_BRANCH */,
+            loc: {},
+            condition: dir.exp,
+            children: [node],
+        };
+    }
+    function createCodegenNodeForBranch(branch, keyIndex, context) {
+        if (branch.condition) {
+            return createConditionalExpression(branch.condition, createChildrenCodegenNode(branch, keyIndex), createCallExpression(context.helper(CREATE_COMMENT), ['"v-if"', "true"]));
+        }
+        else {
+            return createChildrenCodegenNode(branch, keyIndex);
+        }
+    }
+    // 创建指定子节点的codegen
+    function createChildrenCodegenNode(branch, keyIndex) {
+        var keyProperty = createObjectProperty("key", createSimpleExpression("".concat(keyIndex), false));
+        var children = branch.children;
+        var firstChild = children[0];
+        var ret = firstChild.codegenNode;
+        var vnodeCall = getMemoedVNodeCall(ret);
+        injectProp(vnodeCall, keyProperty);
+    }
+    function injectProp(node, prop) {
+        var propsWithInjection;
+        var props = node.type === 13 /* NodeTypes.VNODE_CALL */ ? node.props : node.argumnets[2];
+        if (props === null || isString(props)) {
+            propsWithInjection = createObjectExpression([prop]);
+        }
+        node.props = propsWithInjection;
+    }
+    function createObjectExpression(properties) {
+        return {
+            type: 15 /* NodeTypes.JS_OBJECT_EXPRESSION */,
+            loc: {},
+            properties: properties,
+        };
+    }
+
     function baseCompile(template, options) {
         if (options === void 0) { options = {}; }
         var ast = baseParse(template);
         transform(ast, extend(options, {
-            nodeTransforms: [transformElement, transformText],
+            nodeTransforms: [transformElement, transformText, transformIf],
         }));
-        console.log(JSON.stringify(ast));
+        console.log(ast);
         return generate(ast);
     }
 

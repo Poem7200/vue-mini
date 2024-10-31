@@ -1,3 +1,4 @@
+import { isString } from "@vue/shared";
 import { CREATE_ELEMENT_VNODE } from "./runtimeHelpers";
 
 export const enum NodeTypes {
@@ -64,5 +65,49 @@ export function createVNodeCall(context, tag, props?, children?) {
     tag,
     props,
     children,
+  };
+}
+
+export function createConditionalExpression(
+  test,
+  consquent,
+  alternate,
+  newline = true
+) {
+  return {
+    type: NodeTypes.JS_CONDITIONAL_EXPRESSION,
+    test,
+    consquent,
+    alternate,
+    newline,
+    loc: {},
+  };
+}
+
+// 创建一个简单的表达式节点
+export function createSimpleExpression(content, isStatic) {
+  return {
+    type: NodeTypes.SIMPLE_EXPRESSION,
+    loc: {},
+    content,
+    isStatic,
+  };
+}
+
+export function createObjectProperty(key, value) {
+  return {
+    type: NodeTypes.JS_PROPERTY,
+    loc: {},
+    key: isString(key) ? createSimpleExpression(key, true) : key,
+    value,
+  };
+}
+
+export function createCallExpression(callee, args) {
+  return {
+    type: NodeTypes.JS_CACHE_EXPRESSION,
+    loc: {},
+    callee,
+    arguments: args,
   };
 }
