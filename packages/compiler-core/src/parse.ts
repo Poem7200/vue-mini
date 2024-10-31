@@ -114,17 +114,21 @@ function advanceSpaces(context: ParserContext): void {
 function parseAttributes(context, type) {
   const props: any = [];
 
+  // 属性名的存放
   const attributeNames = new Set<string>();
 
+  // 当源码长度不为0，且剩下的内容不是标签结束的时候，说明还有属性，要循环处理
   while (
     context.source.length > 0 &&
     !startsWith(context.source, ">") &&
     !startsWith(context.source, "/>")
   ) {
     const attr = parseAttribute(context, attributeNames);
+    // 只有是开始标签，才去存放属性
     if (type === TagType.Start) {
       props.push(attr);
     }
+    // 两个属性之间有空格，要右移到下一个属性/结尾位置
     advanceSpaces(context);
   }
 
@@ -132,24 +136,29 @@ function parseAttributes(context, type) {
 }
 
 function parseAttribute(context: ParserContext, nameSet: Set<string>) {
+  // 拿到属性名
   const match = /^[^\t\r\n\f />][^\t\r\n\f />=]*/.exec(context.source)!;
   const name = match[0];
 
   nameSet.add(name);
 
+  // 右移继续准备拿到属性值
   advanceBy(context, name.length);
 
   let value: any = undefined;
 
+  // 如果能有=出现，后面就是属性值了
   if (/^[^\t\r\n\f ]*=/.test(context.source)) {
     advanceSpaces(context);
     advanceBy(context, 1);
     advanceSpaces(context);
+    // 获取属性值
     value = parseAttributeValue(context);
   }
 
-  // v-指令
+  // v-指令处理
   if (/^(v-[A-Za-z0-9-]|:|\.|@|#)/.test(name)) {
+    // 拿到v-指令的名字（例如if/for等等）
     const match =
       /(?:^v-([a-z0-9-]+))?(?:(?::|^\.|^@|^#)(\[[^\]]+\]|[^\.]+))?(.+)?$/i.exec(
         name
@@ -160,6 +169,7 @@ function parseAttribute(context: ParserContext, nameSet: Set<string>) {
     return {
       type: NodeTypes.DIRECTIVE,
       name: dirName,
+      // 指令绑定的值
       exp: value && {
         type: NodeTypes.SIMPLE_EXPRESSION,
         content: value.content,
@@ -172,6 +182,7 @@ function parseAttribute(context: ParserContext, nameSet: Set<string>) {
     };
   }
 
+  // 普通属性处理
   return {
     type: NodeTypes.ATTRIBUTE,
     name,
@@ -184,17 +195,22 @@ function parseAttribute(context: ParserContext, nameSet: Set<string>) {
   };
 }
 
+// 单个属性值的处理
 function parseAttributeValue(context: ParserContext) {
+  // 属性内容
   let content = "";
 
+  // 第一位是引号（单双不确定，所以要拿到它，后面对应去匹配）
   const quote = context.source[0];
   // 右移引号宽度
   advanceBy(context, 1);
   const endIndex = context.source.indexOf(quote);
+  // 没有找到结束引号，则后面内容都是属性值
   if (endIndex === -1) {
     content = parseTextData(context, context.source.length);
   } else {
     content = parseTextData(context, endIndex);
+    // 右移引号宽度
     advanceBy(context, 1);
   }
 
