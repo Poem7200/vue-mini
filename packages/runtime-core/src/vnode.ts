@@ -88,4 +88,8 @@ export function isSameVNodeType(oldVNode: VNode, newVNode: VNode) {
   return oldVNode.type === newVNode.type && oldVNode.key === newVNode.key;
 }
 
+export function createCommentVNode(text) {
+  return createVNode(Comment, null, text);
+}
+
 export { createVNode as createElementVNode };
