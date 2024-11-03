@@ -126,22 +126,27 @@ function createRootCodegen(root) {
 // fn是指令的具体处理方法，通常是闭包函数
 // 返回闭包函数，就是指令对应的处理函数
 export function createStructuralDirectiveTransform(name: string | RegExp, fn) {
+  // 检测指令是否匹配
   const matches = isString(name)
     ? (n: string) => n === name
     : (n: string) => name.test(n);
 
   return (node, context) => {
+    // 因为所有的指令都绑定在ELEMENT节点上，所以只处理ELEMENT节点
     if (node.type === NodeTypes.ELEMENT) {
       const { props } = node;
       const exitFns: any = [];
 
+      // 因为指令实际存在属性中，因此遍历属性，找到其中的指令
       for (let i = 0; i < props.length; i++) {
         const prop = props[i];
 
         if (prop.type === NodeTypes.DIRECTIVE && matches(prop.name)) {
+          // 删除这个属性（因为它本来就不是属性，而是因为位置在属性上）
           props.splice(i, 1);
           i--;
 
+          // 执行传入的方法，当有返回值的时候，推入这个exitFns列表
           const onExit = fn(node, prop, context);
           if (onExit) exitFns.push(onExit);
         }

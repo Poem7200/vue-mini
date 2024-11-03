@@ -68,6 +68,7 @@ export function createVNodeCall(context, tag, props?, children?) {
   };
 }
 
+// TODO: 创建一个条件表达式（四个参数的含义）
 export function createConditionalExpression(
   test,
   consquent,
@@ -94,6 +95,7 @@ export function createSimpleExpression(content, isStatic) {
   };
 }
 
+// 创建一个JS属性的对象
 export function createObjectProperty(key, value) {
   return {
     type: NodeTypes.JS_PROPERTY,

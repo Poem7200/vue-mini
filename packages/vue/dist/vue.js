@@ -1541,18 +1541,23 @@ var Vue = (function (exports) {
     // fn是指令的具体处理方法，通常是闭包函数
     // 返回闭包函数，就是指令对应的处理函数
     function createStructuralDirectiveTransform(name, fn) {
+        // 检测指令是否匹配
         var matches = isString(name)
             ? function (n) { return n === name; }
             : function (n) { return name.test(n); };
         return function (node, context) {
+            // 因为所有的指令都绑定在ELEMENT节点上，所以只处理ELEMENT节点
             if (node.type === 1 /* NodeTypes.ELEMENT */) {
                 var props = node.props;
                 var exitFns = [];
+                // 因为指令实际存在属性中，因此遍历属性，找到其中的指令
                 for (var i = 0; i < props.length; i++) {
                     var prop = props[i];
                     if (prop.type === 7 /* NodeTypes.DIRECTIVE */ && matches(prop.name)) {
+                        // 删除这个属性（因为它本来就不是属性，而是因为位置在属性上）
                         props.splice(i, 1);
                         i--;
+                        // 执行传入的方法，当有返回值的时候，推入这个exitFns列表
                         var onExit = fn(node, prop, context);
                         if (onExit)
                             exitFns.push(onExit);
@@ -1750,6 +1755,7 @@ var Vue = (function (exports) {
             children: children,
         };
     }
+    // TODO: 创建一个条件表达式（四个参数的含义）
     function createConditionalExpression(test, consquent, alternate, newline) {
         if (newline === void 0) { newline = true; }
         return {
@@ -1770,6 +1776,7 @@ var Vue = (function (exports) {
             isStatic: isStatic,
         };
     }
+    // 创建一个JS属性的对象
     function createObjectProperty(key, value) {
         return {
             type: 16 /* NodeTypes.JS_PROPERTY */,
@@ -1853,7 +1860,15 @@ var Vue = (function (exports) {
         };
     }
 
-    var transformIf = createStructuralDirectiveTransform(/^(if|else|else-if)$/, function (node, dir, context) {
+    // 实际的if的transform方法
+    // 第一个参数是判断条件，即v-后面是if/else/else-if
+    // 第二个参数是执行的函数，即onExit
+    var transformIf = createStructuralDirectiveTransform(/^(if|else|else-if)$/, 
+    // 第一个参数是node自己
+    // 第二个参数实际上是prop属性
+    // 第三个参数是上下文
+    // 第四个参数是一个匿名函数，真实目的是往这个ifNode上面创建codegenNode属性
+    function (node, dir, context) {
         return processIf(node, dir, context, function (ifNode, branch, isRoot) {
             var key = 0;
             return function () {
@@ -1865,13 +1880,16 @@ var Vue = (function (exports) {
     });
     // 真实处理if指令的部分
     function processIf(node, dir, context, processCodegen) {
+        // 只有if指令才处理
         if (dir.name === "if") {
+            // 创建一个branch属性
             var branch = createIfBranch(node, dir);
             var ifNode = {
                 type: 9 /* NodeTypes.IF */,
                 loc: {},
                 branches: [branch],
             };
+            // 上下文指向的node改成当前的ifNode
             context.replaceNode(ifNode);
             if (processCodegen) {
                 return processCodegen(ifNode, branch, true);
@@ -1886,26 +1904,32 @@ var Vue = (function (exports) {
             children: [node],
         };
     }
+    // 对if分支创建codegenNode属性
     function createCodegenNodeForBranch(branch, keyIndex, context) {
+        // 如果v-if后面有条件，要根据条件创建三元表达式
         if (branch.condition) {
             return createConditionalExpression(branch.condition, createChildrenCodegenNode(branch, keyIndex), createCallExpression(context.helper(CREATE_COMMENT), ['"v-if"', "true"]));
         }
+        // 没有条件，则只针对子节点创建codegenNode
         else {
             return createChildrenCodegenNode(branch, keyIndex);
         }
     }
     // 创建指定子节点的codegen
+    // key都是0
     function createChildrenCodegenNode(branch, keyIndex) {
         var keyProperty = createObjectProperty("key", createSimpleExpression("".concat(keyIndex), false));
         var children = branch.children;
         var firstChild = children[0];
         var ret = firstChild.codegenNode;
+        // 这个vnodeCall这里比较简单，就是node本身
         var vnodeCall = getMemoedVNodeCall(ret);
         injectProp(vnodeCall, keyProperty);
     }
+    // 把属性注入到node的props中
     function injectProp(node, prop) {
         var propsWithInjection;
-        var props = node.type === 13 /* NodeTypes.VNODE_CALL */ ? node.props : node.argumnets[2];
+        var props = node.type === 13 /* NodeTypes.VNODE_CALL */ ? node.props : node.arguments[2];
         if (props === null || isString(props)) {
             propsWithInjection = createObjectExpression([prop]);
         }
