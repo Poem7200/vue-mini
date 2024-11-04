@@ -1680,11 +1680,11 @@ var Vue = (function (exports) {
             case 8 /* NodeTypes.COMPOUND_EXPRESSION */:
                 genCompoundExpression(node, context);
                 break;
-            // JS调用表达式
+            // JS调用表达式（用来渲染v-if为false时候的内容）
             case 14 /* NodeTypes.JS_CALL_EXPRESSION */:
                 genCallExpression(node, context);
                 break;
-            // JS的条件表达式
+            // JS的条件表达式（用来渲染三元表达式）
             case 19 /* NodeTypes.JS_CONDITIONAL_EXPRESSION */:
                 genConditionalExpression(node, context);
                 break;
@@ -1700,13 +1700,16 @@ var Vue = (function (exports) {
     function genConditionalExpression(node, context) {
         var test = node.test, alternate = node.alternate, consequent = node.consequent, needNewLine = node.newline;
         var push = context.push, newline = context.newline, indent = context.indent, deindent = context.deindent;
+        // 添加v-if的条件值
         if (test.type === 4 /* NodeTypes.SIMPLE_EXPRESSION */) {
             genExpression(test, context);
         }
         needNewLine && indent();
         context.indentLevel++;
+        // 问号
         needNewLine || push(" ");
         push("? ");
+        // v-if为true的时候的展示内容
         genNode(consequent, context);
         context.indentLevel--;
         needNewLine && newline();
@@ -1716,6 +1719,7 @@ var Vue = (function (exports) {
         if (!isNested) {
             context.indentLevel++;
         }
+        // v-if为false的时候的处理内容（渲染v-if的注释节点）
         genNode(alternate, context);
         if (!isNested) {
             context.indentLevel--;

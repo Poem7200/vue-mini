@@ -114,11 +114,11 @@ function genNode(node, context) {
     case NodeTypes.COMPOUND_EXPRESSION:
       genCompoundExpression(node, context);
       break;
-    // JS调用表达式
+    // JS调用表达式（用来渲染v-if为false时候的内容）
     case NodeTypes.JS_CALL_EXPRESSION:
       genCallExpression(node, context);
       break;
-    // JS的条件表达式
+    // JS的条件表达式（用来渲染三元表达式）
     case NodeTypes.JS_CONDITIONAL_EXPRESSION:
       genConditionalExpression(node, context);
       break;
@@ -137,6 +137,7 @@ function genConditionalExpression(node, context) {
   const { test, alternate, consequent, newline: needNewLine } = node;
   const { push, newline, indent, deindent } = context;
 
+  // 添加v-if的条件值
   if (test.type === NodeTypes.SIMPLE_EXPRESSION) {
     genExpression(test, context);
   }
@@ -145,9 +146,11 @@ function genConditionalExpression(node, context) {
 
   context.indentLevel++;
 
+  // 问号
   needNewLine || push(` `);
   push(`? `);
 
+  // v-if为true的时候的展示内容
   genNode(consequent, context);
 
   context.indentLevel--;
@@ -161,6 +164,7 @@ function genConditionalExpression(node, context) {
   if (!isNested) {
     context.indentLevel++;
   }
+  // v-if为false的时候的处理内容（渲染v-if的注释节点）
   genNode(alternate, context);
 
   if (!isNested) {
