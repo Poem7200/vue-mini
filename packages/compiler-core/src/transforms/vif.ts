@@ -74,7 +74,7 @@ function createIfBranch(node, dir) {
 // 对if分支创建codegenNode属性
 function createCodegenNodeForBranch(
   branch,
-  keyIndex,
+  keyIndex: number,
   context: TransformContext
 ) {
   // 如果v-if后面有条件，要根据条件创建三元表达式
@@ -106,6 +106,7 @@ function createChildrenCodegenNode(branch, keyIndex: number) {
   const vnodeCall = getMemoedVNodeCall(ret);
 
   injectProp(vnodeCall, keyProperty);
+  return ret;
 }
 
 // 把属性注入到node的props中
@@ -115,11 +116,13 @@ export function injectProp(node, prop) {
   let props =
     node.type === NodeTypes.VNODE_CALL ? node.props : node.arguments[2];
 
-  if (props === null || isString(props)) {
+  if (props == null || isString(props)) {
     propsWithInjection = createObjectExpression([prop]);
   }
 
-  node.props = propsWithInjection;
+  if (node.type === NodeTypes.VNODE_CALL) {
+    node.props = propsWithInjection;
+  }
 }
 
 export function createObjectExpression(properties) {

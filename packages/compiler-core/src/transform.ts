@@ -135,6 +135,7 @@ export function createStructuralDirectiveTransform(name: string | RegExp, fn) {
     // 因为所有的指令都绑定在ELEMENT节点上，所以只处理ELEMENT节点
     if (node.type === NodeTypes.ELEMENT) {
       const { props } = node;
+
       const exitFns: any = [];
 
       // 因为指令实际存在属性中，因此遍历属性，找到其中的指令

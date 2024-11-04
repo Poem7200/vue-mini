@@ -202,19 +202,23 @@ function parseAttributeValue(context: ParserContext) {
 
   // 第一位是引号（单双不确定，所以要拿到它，后面对应去匹配）
   const quote = context.source[0];
-  // 右移引号宽度
-  advanceBy(context, 1);
-  const endIndex = context.source.indexOf(quote);
-  // 没有找到结束引号，则后面内容都是属性值
-  if (endIndex === -1) {
-    content = parseTextData(context, context.source.length);
-  } else {
-    content = parseTextData(context, endIndex);
+  const isQuoted = quote === `"` || quote === `'`;
+
+  if (isQuoted) {
     // 右移引号宽度
     advanceBy(context, 1);
+    const endIndex = context.source.indexOf(quote);
+    // 没有找到结束引号，则后面内容都是属性值
+    if (endIndex === -1) {
+      content = parseTextData(context, context.source.length);
+    } else {
+      content = parseTextData(context, endIndex);
+      // 右移引号宽度
+      advanceBy(context, 1);
+    }
   }
 
-  return { content, isQuoted: true, loc: {} };
+  return { content, isQuoted, loc: {} };
 }
 
 function parseText(context: ParserContext) {
@@ -267,12 +271,13 @@ function parseTag(context: ParserContext, type: TagType) {
   let isSelfClosing = startsWith(context.source, "/>");
   advanceBy(context, isSelfClosing ? 2 : 1);
 
+  let tagType = ElementTypes.ELEMENT;
+
   return {
     // 标记当前是element节点
     type: NodeTypes.ELEMENT,
     tag,
-    tagType: ElementTypes.ELEMENT,
-    // 一开始是props: []
+    tagType,
     props,
     children: [],
   };

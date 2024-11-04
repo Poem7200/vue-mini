@@ -470,6 +470,9 @@ var Vue = (function (exports) {
     function isSameVNodeType(oldVNode, newVNode) {
         return oldVNode.type === newVNode.type && oldVNode.key === newVNode.key;
     }
+    function createCommentVNode(text) {
+        return createVNode(Comment, null, text);
+    }
 
     function h(type, propsOrChildren, children) {
         var l = arguments.length;
@@ -1330,19 +1333,22 @@ var Vue = (function (exports) {
         var content = "";
         // 第一位是引号（单双不确定，所以要拿到它，后面对应去匹配）
         var quote = context.source[0];
-        // 右移引号宽度
-        advanceBy(context, 1);
-        var endIndex = context.source.indexOf(quote);
-        // 没有找到结束引号，则后面内容都是属性值
-        if (endIndex === -1) {
-            content = parseTextData(context, context.source.length);
-        }
-        else {
-            content = parseTextData(context, endIndex);
+        var isQuoted = quote === "\"" || quote === "'";
+        if (isQuoted) {
             // 右移引号宽度
             advanceBy(context, 1);
+            var endIndex = context.source.indexOf(quote);
+            // 没有找到结束引号，则后面内容都是属性值
+            if (endIndex === -1) {
+                content = parseTextData(context, context.source.length);
+            }
+            else {
+                content = parseTextData(context, endIndex);
+                // 右移引号宽度
+                advanceBy(context, 1);
+            }
         }
-        return { content: content, isQuoted: true, loc: {} };
+        return { content: content, isQuoted: isQuoted, loc: {} };
     }
     function parseText(context) {
         // 如果遇到下方的，表示普通文本的结束
@@ -1380,12 +1386,12 @@ var Vue = (function (exports) {
         // 判断是否为自闭合标签：是的话右移2，否则右移1
         var isSelfClosing = startsWith(context.source, "/>");
         advanceBy(context, isSelfClosing ? 2 : 1);
+        var tagType = 0 /* ElementTypes.ELEMENT */;
         return {
             // 标记当前是element节点
             type: 1 /* NodeTypes.ELEMENT */,
             tag: tag,
-            tagType: 0 /* ElementTypes.ELEMENT */,
-            // 一开始是props: []
+            tagType: tagType,
             props: props,
             children: [],
         };
@@ -1652,6 +1658,10 @@ var Vue = (function (exports) {
     }
     function genNode(node, context) {
         switch (node.type) {
+            case 1 /* NodeTypes.ELEMENT */:
+            case 9 /* NodeTypes.IF */:
+                genNode(node.codegenNode, context);
+                break;
             case 13 /* NodeTypes.VNODE_CALL */:
                 genVNodeCall(node, context);
                 break;
@@ -1670,11 +1680,47 @@ var Vue = (function (exports) {
             case 8 /* NodeTypes.COMPOUND_EXPRESSION */:
                 genCompoundExpression(node, context);
                 break;
-            // 多层级节点
-            case 1 /* NodeTypes.ELEMENT */:
-                genNode(node.codegenNode, context);
+            // JS调用表达式
+            case 14 /* NodeTypes.JS_CALL_EXPRESSION */:
+                genCallExpression(node, context);
+                break;
+            // JS的条件表达式
+            case 19 /* NodeTypes.JS_CONDITIONAL_EXPRESSION */:
+                genConditionalExpression(node, context);
                 break;
         }
+    }
+    function genCallExpression(node, context) {
+        var push = context.push, helper = context.helper;
+        var callee = isString(node.callee) ? node.callee : helper(node.callee);
+        push(callee + "(", node);
+        genNodeList(node.arguments, context);
+        push(")");
+    }
+    function genConditionalExpression(node, context) {
+        var test = node.test, alternate = node.alternate, consequent = node.consequent, needNewLine = node.newline;
+        var push = context.push, newline = context.newline, indent = context.indent, deindent = context.deindent;
+        if (test.type === 4 /* NodeTypes.SIMPLE_EXPRESSION */) {
+            genExpression(test, context);
+        }
+        needNewLine && indent();
+        context.indentLevel++;
+        needNewLine || push(" ");
+        push("? ");
+        genNode(consequent, context);
+        context.indentLevel--;
+        needNewLine && newline();
+        needNewLine || push(" ");
+        push(": ");
+        var isNested = alternate.type === 19 /* NodeTypes.JS_CONDITIONAL_EXPRESSION */;
+        if (!isNested) {
+            context.indentLevel++;
+        }
+        genNode(alternate, context);
+        if (!isNested) {
+            context.indentLevel--;
+        }
+        needNewLine && deindent(true);
     }
     function genCompoundExpression(node, context) {
         for (var i = 0; i < node.children.length; i++) {
@@ -1756,12 +1802,12 @@ var Vue = (function (exports) {
         };
     }
     // TODO: 创建一个条件表达式（四个参数的含义）
-    function createConditionalExpression(test, consquent, alternate, newline) {
+    function createConditionalExpression(test, consequent, alternate, newline) {
         if (newline === void 0) { newline = true; }
         return {
             type: 19 /* NodeTypes.JS_CONDITIONAL_EXPRESSION */,
             test: test,
-            consquent: consquent,
+            consequent: consequent,
             alternate: alternate,
             newline: newline,
             loc: {},
@@ -1787,7 +1833,7 @@ var Vue = (function (exports) {
     }
     function createCallExpression(callee, args) {
         return {
-            type: 20 /* NodeTypes.JS_CACHE_EXPRESSION */,
+            type: 14 /* NodeTypes.JS_CALL_EXPRESSION */,
             loc: {},
             callee: callee,
             arguments: args,
@@ -1925,15 +1971,18 @@ var Vue = (function (exports) {
         // 这个vnodeCall这里比较简单，就是node本身
         var vnodeCall = getMemoedVNodeCall(ret);
         injectProp(vnodeCall, keyProperty);
+        return ret;
     }
     // 把属性注入到node的props中
     function injectProp(node, prop) {
         var propsWithInjection;
         var props = node.type === 13 /* NodeTypes.VNODE_CALL */ ? node.props : node.arguments[2];
-        if (props === null || isString(props)) {
+        if (props == null || isString(props)) {
             propsWithInjection = createObjectExpression([prop]);
         }
-        node.props = propsWithInjection;
+        if (node.type === 13 /* NodeTypes.VNODE_CALL */) {
+            node.props = propsWithInjection;
+        }
     }
     function createObjectExpression(properties) {
         return {
@@ -1949,7 +1998,6 @@ var Vue = (function (exports) {
         transform(ast, extend(options, {
             nodeTransforms: [transformElement, transformText, transformIf],
         }));
-        console.log(ast);
         return generate(ast);
     }
 
@@ -1968,6 +2016,7 @@ var Vue = (function (exports) {
     exports.Text = Text;
     exports.compile = compileToFunction;
     exports.computed = computed;
+    exports.createCommentVNode = createCommentVNode;
     exports.createElementVNode = createVNode;
     exports.effect = effect;
     exports.h = h;

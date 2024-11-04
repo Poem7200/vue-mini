@@ -71,14 +71,14 @@ export function createVNodeCall(context, tag, props?, children?) {
 // TODO: 创建一个条件表达式（四个参数的含义）
 export function createConditionalExpression(
   test,
-  consquent,
+  consequent,
   alternate,
   newline = true
 ) {
   return {
     type: NodeTypes.JS_CONDITIONAL_EXPRESSION,
     test,
-    consquent,
+    consequent,
     alternate,
     newline,
     loc: {},
@@ -107,7 +107,7 @@ export function createObjectProperty(key, value) {
 
 export function createCallExpression(callee, args) {
   return {
-    type: NodeTypes.JS_CACHE_EXPRESSION,
+    type: NodeTypes.JS_CALL_EXPRESSION,
     loc: {},
     callee,
     arguments: args,
