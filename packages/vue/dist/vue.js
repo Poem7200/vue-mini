@@ -537,6 +537,7 @@ var Vue = (function (exports) {
     var onMounted = createHook("m" /* LifecycleHooks.MOUNTED */);
 
     var uid = 0;
+    var compile$1 = null;
     function createComponentInstance(vnode) {
         var type = vnode.type;
         var instance = {
@@ -580,9 +581,18 @@ var Vue = (function (exports) {
     function finishComponentSetup(instance) {
         var Component = instance.type;
         if (!instance.render) {
+            if (compile$1 && !Component.render) {
+                if (Component.template) {
+                    var template = Component.template;
+                    Component.render = compile$1(template);
+                }
+            }
             instance.render = Component.render;
         }
         applyOptions(instance);
+    }
+    function registerRuntimeCompile(_compile) {
+        compile$1 = _compile;
     }
     function applyOptions(instance) {
         var _a = instance.type, dataOptions = _a.data, beforeCreate = _a.beforeCreate, created = _a.created, beforeMount = _a.beforeMount, mounted = _a.mounted;
@@ -2053,6 +2063,7 @@ var Vue = (function (exports) {
         var render = new Function(code)();
         return render;
     }
+    registerRuntimeCompile(compileToFunction);
 
     exports.Comment = Comment;
     exports.EMPTY_OBJ = EMPTY_OBJ;

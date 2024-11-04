@@ -1,4 +1,5 @@
 import { compile } from "@vue/compiler-dom";
+import { registerRuntimeCompile } from "packages/runtime-core/src/component";
 
 function compileToFunction(template, options?) {
   const { code } = compile(template, options);
@@ -7,5 +8,7 @@ function compileToFunction(template, options?) {
 
   return render;
 }
+
+registerRuntimeCompile(compileToFunction);
 
 export { compileToFunction as compile };
