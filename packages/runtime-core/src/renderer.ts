@@ -4,6 +4,7 @@ import { normalizeVNode, renderComponentRoot } from "./componentRenderUtils";
 import { createComponentInstance, setupComponent } from "./component";
 import { ReactiveEffect } from "packages/reactivity/src/effect";
 import { queuePreFlushCb } from "./scheduler";
+import { createAppAPI } from "./apiCreateApp";
 
 export interface RendererOptions {
   // 为指定的element的prop打补丁
@@ -451,6 +452,7 @@ function baseCreateRenderer(options: RendererOptions): any {
 
   return {
     render,
+    createApp: createAppAPI(render),
   };
 }
 

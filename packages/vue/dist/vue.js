@@ -610,6 +610,21 @@ var Vue = (function (exports) {
         hook.bind(proxy)();
     }
 
+    function createAppAPI(render) {
+        return function createApp(rootComponent, rootProps) {
+            if (rootProps === void 0) { rootProps = null; }
+            var app = {
+                _component: rootComponent,
+                _container: null,
+                mount: function (rootContainer) {
+                    var vnode = createVNode(rootComponent, rootProps, null);
+                    render(vnode, rootContainer);
+                },
+            };
+            return app;
+        };
+    }
+
     function createRenderer(options) {
         return baseCreateRenderer(options);
     }
@@ -975,6 +990,7 @@ var Vue = (function (exports) {
         };
         return {
             render: render,
+            createApp: createAppAPI(render),
         };
     }
     /**
@@ -1180,6 +1196,29 @@ var Vue = (function (exports) {
         }
         (_a = ensureRenderer()).render.apply(_a, __spreadArray([], __read(args), false));
     };
+    var createApp = function () {
+        var _a;
+        var args = [];
+        for (var _i = 0; _i < arguments.length; _i++) {
+            args[_i] = arguments[_i];
+        }
+        var app = (_a = ensureRenderer()).createApp.apply(_a, __spreadArray([], __read(args), false));
+        var mount = app.mount;
+        app.mount = function (containerOrSelector) {
+            var container = normalizeContainer(containerOrSelector);
+            if (!container)
+                return;
+            mount(container);
+        };
+        return app;
+    };
+    function normalizeContainer(container) {
+        if (isString(container)) {
+            var res = document.querySelector(container);
+            return res;
+        }
+        return container;
+    }
 
     function createParserContext(content) {
         return {
@@ -2016,14 +2055,25 @@ var Vue = (function (exports) {
     }
 
     exports.Comment = Comment;
+    exports.EMPTY_OBJ = EMPTY_OBJ;
     exports.Fragment = Fragment;
     exports.Text = Text;
     exports.compile = compileToFunction;
     exports.computed = computed;
+    exports.createApp = createApp;
     exports.createCommentVNode = createCommentVNode;
     exports.createElementVNode = createVNode;
     exports.effect = effect;
+    exports.extend = extend;
     exports.h = h;
+    exports.hasChanged = hasChanged;
+    exports.isArray = isArray;
+    exports.isFunction = isFunction;
+    exports.isObject = isObject;
+    exports.isOn = isOn;
+    exports.isReactive = isReactive;
+    exports.isString = isString;
+    exports.normalizeClass = normalizeClass;
     exports.queuePreFlushCb = queuePreFlushCb;
     exports.reactive = reactive;
     exports.ref = ref;
